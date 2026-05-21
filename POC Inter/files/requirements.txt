@@ -1,0 +1,12 @@
+pymongo
+langchain
+langchain-community
+langchain-mongodb
+langgraph
+langchain-anthropic
+voyageai
+streamlit
+python-dotenv
+langgraph-checkpoint-mongodb
+pandas
+anthropic
