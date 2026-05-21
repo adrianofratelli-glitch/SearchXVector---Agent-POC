@@ -1,182 +1,144 @@
-# POC Banco Inter × MongoDB Atlas
+# 🏦 Banco Inter × MongoDB Atlas — AI Agent POC
 
-Demo técnica de **Atlas Search**, **Vector Search** e **AI Agent** sobre dados transacionais reais do Banco Inter.
-
----
-
-## Arquitetura
-
-```
-┌─────────────────────────────────────────────┐
-│           Streamlit (EC2 :8501)             │
-│  Tab 1: Atlas Search  |  Tab 2: Search vs   │
-│  Tab 3: AI Agent (LangGraph + Ollama)        │
-└──────────────┬──────────────────────────────┘
-               │
-┌──────────────▼──────────────────────────────┐
-│           MongoDB Atlas M10/M30             │
-│  banco_inter.fatura       (~44M docs)        │
-│  banco_inter.transacoes   (~27M docs)        │
-│  banco_inter.transacoes_sample (50K docs)    │
-│  banco_inter.checkpoints  (memória agente)   │
-│                                             │
-│  Índices:                                   │
-│  • Search "Fatura"       (fatura)            │
-│  • Search "transacoes"   (transacoes)        │
-│  • Vector "transacoes_vector" (autoEmbed     │
-│    voyage-4 em transacoes_sample)            │
-└─────────────────────────────────────────────┘
-```
+> Demo técnica de AI Agent sobre dados transacionais reais usando **LangGraph + Claude Haiku + Atlas Vector Search (autoEmbed voyage-4) + MongoDB**.
 
 ---
 
-## Pré-requisitos
+## 🎯 Objetivo
 
-| Recurso | Detalhe |
+Demonstrar como o **MongoDB Atlas** serve como backend completo para aplicações de AI Agents — combinando busca semântica, full-text search, aggregation e memória de longo prazo em uma única plataforma.
+
+---
+
+## 🏗️ Arquitetura
+
+![Architecture](architecture-banco-inter.html)
+
+| Camada | Tecnologia |
 |---|---|
-| EC2 | Amazon Linux 2023 — `m5.2xlarge` (CPU) ou `g4dn.xlarge` (GPU recomendado) |
-| IAM Role | `ec2-inter` com `AmazonSSMManagedInstanceCore` + `AmazonS3ReadOnlyAccess` |
-| MongoDB Atlas | Cluster M10+ com collections importadas |
-| S3 | Bucket com os JSONLs dos dados |
+| UI | Streamlit (EC2 :8501) |
+| AI Agent | LangGraph — ReAct pattern |
+| LLM | Claude Haiku 4.5 (Anthropic) |
+| Embedding | VoyageAI voyage-4 via **autoEmbed** (sem SDK externo) |
+| Banco de dados | MongoDB Atlas 8.0 |
+| Memória | MongoDBSaver — checkpoints por `thread_id` |
+| Infra | AWS EC2 m5.2xlarge — systemd auto-start |
 
 ---
 
-## Setup (nova EC2)
-
-```bash
-# 1. Clone o repositório
-git clone https://github.com/<seu-usuario>/poc-inter-mongodb.git
-cd poc-inter-mongodb
-
-# 2. Configure as credenciais
-cp .env.example .env
-nano .env   # preencha MONGODB_URI com sua connection string
-
-# 3. Execute o setup completo
-bash setup.sh
-```
-
----
-
-## Iniciar a POC
-
-```bash
-bash start.sh
-```
-
-Acesse em: `http://<IP-PÚBLICO-DA-EC2>:8501`
-
-> **Lembrete:** toda vez que religar a VM, o IP público muda.
-> Atualize no **Atlas Network Access** e no **Security Group** (porta 8501).
-
----
-
-## Funcionalidades
+## 🚀 Features demonstradas
 
 ### 🔍 Tab 1 — Atlas Search
-- Full-text search com **autocomplete** e **fuzzy matching**
-- **Highlight** do termo buscado nos resultados
-- **Facets** por segmento (s1/s2/s3/s4)
-- Ordenação por Relevância, Maior Valor ou Menor Valor
-- Suporte às collections `fatura` e `transacoes`
+- Full-text search com **autocomplete** e **fuzzy matching** (maxEdits: 1)
+- **Facets** por segmento e categoria MCC
+- **Highlight** dos termos encontrados
+- Ordenação por relevância, maior e menor valor
+- Collections: `transacoes` (71M docs) e `fatura`
 
-### ⚡ Tab 2 — Search vs Vector Search
-- Comparação lado a lado entre busca por palavra-chave e busca semântica
-- Demonstra a diferença: `"alimentação"` → Atlas Search não acha nada, Vector Search acha IFOOD
+### ⚡ Tab 2 — Search vs Vector
+- Comparação lado a lado: **busca por palavra-chave** vs **busca semântica**
+- Demonstra o gap: "alimentação" → Atlas Search retorna zero; Vector Search retorna SUPERMERCADO, IFOOD, ATACADISTA
+- Evidencia o valor do **autoEmbed** (query string → embedding → ANN search, tudo no Atlas)
 
 ### 🤖 Tab 3 — AI Agent
-- LangGraph + Ollama (`qwen2.5:3b`) rodando 100% local
-- Tools: busca semântica, análise de conta, top gastos por segmento
-- **Memória persistida** no MongoDB (`banco_inter.checkpoints`)
-- Embeddings gerados pelo modelo **voyage-4** hospedado no Atlas (autoEmbed)
+- LangGraph ReAct Agent com 4 ferramentas MongoDB:
+  - `busca_semantica` — `$vectorSearch` em `transacoes_sample`
+  - `buscar_por_estabelecimento` — `$search` autocomplete + fuzzy
+  - `analisar_conta` — `$match` + `$group` + `$sort` por account
+  - `top_gastos_segmento` — `$match` segmento + `$sort` por valor
+- **Memória de longo prazo** via `MongoDBSaver` — histórico gravado em `banco_inter.checkpoints`
+- Cada sessão identificada por `thread_id` — persiste entre restarts da EC2
 
 ---
 
-## Índices necessários no Atlas
+## 🗄️ Collections no Atlas
 
-### Atlas Search — `fatura` (nome: `Fatura`)
-```json
-{
-  "mappings": {
-    "dynamic": false,
-    "fields": {
-      "amss_mt_desc":          [{"type": "string", "analyzer": "lucene.standard"}, {"type": "autocomplete"}],
-      "amss_mt_rpt_desc":      {"type": "string"},
-      "amss_mt_category_code": {"type": "stringFacet"},
-      "segmento":              {"type": "stringFacet"},
-      "amss_mt_amount":        {"type": "number"}
-    }
-  }
-}
 ```
-
-### Atlas Search — `transacoes` (nome: `transacoes`)
-```json
-{
-  "mappings": {
-    "dynamic": false,
-    "fields": {
-      "amos_mt_desc":          [{"type": "string", "analyzer": "lucene.standard"}, {"type": "autocomplete"}],
-      "amos_mt_category_code": {"type": "stringFacet"},
-      "segmento":              {"type": "stringFacet"},
-      "amos_mt_amount":        {"type": "number"}
-    }
-  }
-}
-```
-
-### Vector Search — `transacoes_sample` (nome: `transacoes_vector`)
-```json
-{
-  "fields": [
-    {"type": "autoEmbed", "modality": "text", "path": "amos_mt_desc", "model": "voyage-4"},
-    {"type": "filter", "path": "segmento"}
-  ]
-}
-```
-
-### Criar `transacoes_sample` (50K docs)
-```js
-use banco_inter
-db.transacoes.aggregate([
-  { "$sample": { "size": 50000 } },
-  { "$out": "transacoes_sample" }
-])
+banco_inter
+├── transacoes          → 71M docs — idx: segmento, account_number, amos_mt_desc
+├── transacoes_sample   → Vector Search index HNSW — voyage-4 1024d (autoEmbed)
+├── fatura              → Atlas Search index: autocomplete + fuzzy + facets
+└── checkpoints         → Memória de longo prazo do LangGraph
 ```
 
 ---
 
-## Popular o Performance Advisor / Profiler
+## ⚙️ Setup
+
+### Pré-requisitos
+- AWS EC2 m5.2xlarge (ou superior)
+- MongoDB Atlas cluster com MongoDB 8.0+
+- Conta Anthropic (Claude Haiku)
+- Python 3.11+
+
+### Instalação
 
 ```bash
-source venv/bin/activate   # ou pip install pymongo
-python populate_profiler.py
+git clone https://github.com/adrianofratelli-glitch/SearchXVector---Agent-POC.git
+cd SearchXVector---Agent-POC
+
+pip install -r requirements.txt
 ```
 
-Antes de rodar, ative o **Profiler** no Atlas UI com threshold `0ms`.
+### Variáveis de ambiente
+
+Crie um arquivo `.env` na raiz do projeto:
+
+```env
+MONGODB_URI=mongodb+srv://<user>:<password>@<cluster>.mongodb.net/
+DB_NAME=banco_inter
+ANTHROPIC_API_KEY=sk-ant-...
+```
+
+### Executar
+
+```bash
+streamlit run app.py --server.port 8501 --server.address 0.0.0.0
+```
+
+Ou via systemd (auto-start):
+
+```bash
+sudo systemctl enable streamlit-inter
+sudo systemctl start streamlit-inter
+```
 
 ---
 
-## Variáveis de ambiente
+## 🔑 Por que MongoDB para AI Agents?
 
-| Variável | Descrição |
+| Necessidade | Solução MongoDB Atlas |
 |---|---|
-| `MONGODB_URI` | Connection string Atlas (`mongodb+srv://...`) |
-| `OLLAMA_BASE_URL` | URL do Ollama (padrão: `http://localhost:11434`) |
-| `DB_NAME` | Nome do banco (padrão: `banco_inter`) |
+| Busca semântica | Vector Search + autoEmbed (sem pipeline de embedding externo) |
+| Busca textual | Atlas Search — autocomplete, fuzzy, facets, highlight |
+| Análise transacional | Aggregation Framework — $match, $group, $sort, $lookup |
+| Memória do agente | MongoDBSaver — checkpoints nativos do LangGraph |
+| Escalabilidade | 71M+ documentos com latência < 10ms por query |
+
+> **autoEmbed** elimina a necessidade de um serviço de embedding separado — a query string é enviada diretamente ao `$vectorSearch` e o Atlas gera o vetor internamente usando VoyageAI voyage-4.
 
 ---
 
-## Estrutura do repositório
+## 📁 Estrutura do projeto
 
 ```
-poc-inter-mongodb/
-├── app.py                  # Aplicação Streamlit principal
-├── populate_profiler.py    # Script para popular Performance Advisor
-├── requirements.txt        # Dependências Python
-├── setup.sh                # Bootstrap para nova EC2
-├── start.sh                # Iniciar a POC
-├── .env.example            # Template de variáveis de ambiente
-├── .gitignore
+.
+├── app.py                        # Aplicação principal Streamlit + LangGraph
+├── architecture-banco-inter.html # Diagrama de arquitetura
+├── .env                          # Variáveis de ambiente (não commitado)
 └── README.md
 ```
+
+---
+
+## 🛠️ Stack completa
+
+![MongoDB Atlas](https://img.shields.io/badge/MongoDB%20Atlas-8.0-00ED64?style=flat&logo=mongodb&logoColor=white)
+![LangGraph](https://img.shields.io/badge/LangGraph-ReAct-7C6DD8?style=flat)
+![Claude](https://img.shields.io/badge/Claude-Haiku%204.5-FF6B4A?style=flat)
+![Streamlit](https://img.shields.io/badge/Streamlit-1.x-FF4B4B?style=flat&logo=streamlit&logoColor=white)
+![AWS](https://img.shields.io/badge/AWS-EC2%20m5.2xlarge-232F3E?style=flat&logo=amazon-aws)
+
+---
+
+*POC desenvolvida para demonstração técnica — Solutions Architect MongoDB Brasil — 2026*
