@@ -1,4 +1,4 @@
-# 🏦 Banco Inter × MongoDB Atlas — AI Agent POC
+# 🏦 Financial Services × MongoDB Atlas — AI Agent POC
 
 > Demo técnica de AI Agent sobre dados transacionais reais usando **LangGraph + Claude Haiku + Atlas Vector Search (autoEmbed voyage-4) + MongoDB**.
 
@@ -11,8 +11,6 @@ Demonstrar como o **MongoDB Atlas** serve como backend completo para aplicaçõe
 ---
 
 ## 🏗️ Arquitetura
-
-![Architecture](architecture-banco-inter.html)
 
 | Camada | Tecnologia |
 |---|---|
@@ -33,29 +31,29 @@ Demonstrar como o **MongoDB Atlas** serve como backend completo para aplicaçõe
 - **Facets** por segmento e categoria MCC
 - **Highlight** dos termos encontrados
 - Ordenação por relevância, maior e menor valor
-- Collections: `transacoes` (71M docs) e `fatura`
+- Collections: `transacoes` (71M+ docs) e `fatura`
 
 ### ⚡ Tab 2 — Search vs Vector
 - Comparação lado a lado: **busca por palavra-chave** vs **busca semântica**
 - Demonstra o gap: "alimentação" → Atlas Search retorna zero; Vector Search retorna SUPERMERCADO, IFOOD, ATACADISTA
-- Evidencia o valor do **autoEmbed** (query string → embedding → ANN search, tudo no Atlas)
+- Evidencia o valor do **autoEmbed** — query string enviada diretamente ao `$vectorSearch`, embedding gerado no Atlas
 
 ### 🤖 Tab 3 — AI Agent
 - LangGraph ReAct Agent com 4 ferramentas MongoDB:
-  - `busca_semantica` — `$vectorSearch` em `transacoes_sample`
+  - `busca_semantica` — `$vectorSearch` com autoEmbed
   - `buscar_por_estabelecimento` — `$search` autocomplete + fuzzy
-  - `analisar_conta` — `$match` + `$group` + `$sort` por account
-  - `top_gastos_segmento` — `$match` segmento + `$sort` por valor
-- **Memória de longo prazo** via `MongoDBSaver` — histórico gravado em `banco_inter.checkpoints`
-- Cada sessão identificada por `thread_id` — persiste entre restarts da EC2
+  - `analisar_conta` — `$match` + `$group` + `$sort`
+  - `top_gastos_segmento` — `$match` + `$sort` por valor
+- **Memória de longo prazo** via `MongoDBSaver` — histórico gravado em `checkpoints`
+- Cada sessão identificada por `thread_id` — persiste entre restarts
 
 ---
 
-## 🗄️ Collections no Atlas
+## 🗄️ Collections
 
 ```
-banco_inter
-├── transacoes          → 71M docs — idx: segmento, account_number, amos_mt_desc
+financial_db
+├── transacoes          → 71M+ docs — idx: segmento, account_number, amos_mt_desc
 ├── transacoes_sample   → Vector Search index HNSW — voyage-4 1024d (autoEmbed)
 ├── fatura              → Atlas Search index: autocomplete + fuzzy + facets
 └── checkpoints         → Memória de longo prazo do LangGraph
@@ -76,7 +74,6 @@ banco_inter
 ```bash
 git clone https://github.com/adrianofratelli-glitch/SearchXVector---Agent-POC.git
 cd SearchXVector---Agent-POC
-
 pip install -r requirements.txt
 ```
 
@@ -86,7 +83,7 @@ Crie um arquivo `.env` na raiz do projeto:
 
 ```env
 MONGODB_URI=mongodb+srv://<user>:<password>@<cluster>.mongodb.net/
-DB_NAME=banco_inter
+DB_NAME=financial_db
 ANTHROPIC_API_KEY=sk-ant-...
 ```
 
@@ -109,7 +106,7 @@ sudo systemctl start streamlit-inter
 
 | Necessidade | Solução MongoDB Atlas |
 |---|---|
-| Busca semântica | Vector Search + autoEmbed (sem pipeline de embedding externo) |
+| Busca semântica | Vector Search + autoEmbed (sem pipeline externo) |
 | Busca textual | Atlas Search — autocomplete, fuzzy, facets, highlight |
 | Análise transacional | Aggregation Framework — $match, $group, $sort, $lookup |
 | Memória do agente | MongoDBSaver — checkpoints nativos do LangGraph |
@@ -125,13 +122,14 @@ sudo systemctl start streamlit-inter
 .
 ├── app.py                        # Aplicação principal Streamlit + LangGraph
 ├── architecture-banco-inter.html # Diagrama de arquitetura
+├── architecture-banco-inter.pdf  # Diagrama de arquitetura (PDF)
 ├── .env                          # Variáveis de ambiente (não commitado)
 └── README.md
 ```
 
 ---
 
-## 🛠️ Stack completa
+## 🛠️ Stack
 
 ![MongoDB Atlas](https://img.shields.io/badge/MongoDB%20Atlas-8.0-00ED64?style=flat&logo=mongodb&logoColor=white)
 ![LangGraph](https://img.shields.io/badge/LangGraph-ReAct-7C6DD8?style=flat)
