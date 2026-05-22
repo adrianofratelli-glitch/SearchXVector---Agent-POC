@@ -1,22 +1,22 @@
-# Credenciais — NUNCA commitar
+# Env
 .env
+*.env
 
 # Python
 __pycache__/
 *.py[cod]
-*.pyo
-venv/
-.venv/
 *.egg-info/
-
-# Logs
-*.log
-nohup.out
+.venv/
+venv/
 
 # OS
 .DS_Store
 Thumbs.db
 
-# IDE
+# IDEs
 .vscode/
 .idea/
+
+# Logs
+*.log
+nohup.out
