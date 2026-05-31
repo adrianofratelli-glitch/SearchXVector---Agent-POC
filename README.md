@@ -1,12 +1,12 @@
-# 🏦 Financial Services × MongoDB Atlas — AI Agent POC
+# 🛒 Marketplace × MongoDB Atlas — Search & AI Agent POC
 
-> Demo técnica de AI Agent sobre dados transacionais reais usando **LangGraph + Claude Haiku + Atlas Vector Search (autoEmbed voyage-4) + MongoDB**.
+> Demo técnica para demonstrar **Atlas Search · Vector Search · Hybrid RRF · AI Agent** usando um catálogo de marketplace com **20M+ documentos** sintéticos.
 
 ---
 
 ## 🎯 Objetivo
 
-Demonstrar como o **MongoDB Atlas** serve como backend completo para aplicações de AI Agents — combinando busca semântica, full-text search, aggregation e memória de longo prazo em uma única plataforma.
+Demonstrar como o **MongoDB Atlas** serve como backend completo para aplicações de busca e AI — combinando busca textual, busca semântica, hybrid search e AI Agent com memória em uma única plataforma.
 
 ---
 
@@ -14,116 +14,126 @@ Demonstrar como o **MongoDB Atlas** serve como backend completo para aplicaçõe
 
 | Camada | Tecnologia |
 |---|---|
-| UI | Streamlit (EC2 :8501) |
+| UI | Streamlit |
 | AI Agent | LangGraph — ReAct pattern |
 | LLM | Claude Haiku 4.5 (Anthropic) |
-| Embedding | VoyageAI voyage-4 via **autoEmbed** (sem SDK externo) |
+| Embedding | VoyageAI voyage-4 via **autoEmbed** |
 | Banco de dados | MongoDB Atlas 8.0 |
 | Memória | MongoDBSaver — checkpoints por `thread_id` |
-| Infra | AWS EC2 m5.2xlarge — systemd auto-start |
 
 ---
 
 ## 🚀 Features demonstradas
 
 ### 🔍 Tab 1 — Atlas Search
-- Full-text search com **autocomplete** e **fuzzy matching** (maxEdits: 1)
-- **Facets** por segmento e categoria MCC
+- **Autocomplete** no nome do produto (edgeGram, minGrams: 2)
+- **Fuzzy matching** — `"adidass"` → Adidas, `"samsumg"` → Samsung
+- **Facets** por categoria, faixa de preço, estoque
 - **Highlight** dos termos encontrados
-- Ordenação por relevância, maior e menor valor
-- Collections: `transacoes` (71M+ docs) e `fatura`
+- **Compound query** — boost no `nome`, full-text na `descricao`
 
 ### ⚡ Tab 2 — Search vs Vector
-- Comparação lado a lado: **busca por palavra-chave** vs **busca semântica**
-- Demonstra o gap: "alimentação" → Atlas Search retorna zero; Vector Search retorna SUPERMERCADO, IFOOD, ATACADISTA
-- Evidencia o valor do **autoEmbed** — query string enviada diretamente ao `$vectorSearch`, embedding gerado no Atlas
+- Comparação lado a lado: **palavra-chave** vs **significado semântico**
+- O gap WOW: `"academia em casa"` → Atlas Search retorna zero; Vector Search retorna halteres, whey, kettlebell
+- Demonstra o valor do **autoEmbed** — query string direto no `$vectorSearch`
 
-### 🤖 Tab 3 — AI Agent
+### 🔀 Tab 3 — Hybrid RRF
+- Combina Atlas Search + Vector Search via **Reciprocal Rank Fusion**
+- `score_rrf = Σ 1 / (k + rank_i)` com k ajustável
+- Mostra origem de cada resultado: só Search, só Vector, ou nos dois 🏆
+- Sliders para controlar k, quantidade de resultados por engine
+
+### 🤖 Tab 4 — AI Agent
 - LangGraph ReAct Agent com 4 ferramentas MongoDB:
-  - `busca_semantica` — `$vectorSearch` com autoEmbed
-  - `buscar_por_estabelecimento` — `$search` autocomplete + fuzzy
-  - `analisar_conta` — `$match` + `$group` + `$sort`
-  - `top_gastos_segmento` — `$match` + `$sort` por valor
-- **Memória de longo prazo** via `MongoDBSaver` — histórico gravado em `checkpoints`
-- Cada sessão identificada por `thread_id` — persiste entre restarts
+  - `busca_semantica` — `$vectorSearch` autoEmbed
+  - `buscar_produto` — `$search` autocomplete + fuzzy
+  - `comparar_categoria` — `$match` + `$sort` por avaliação
+  - `produtos_por_faixa_preco` — `$match` com range de preço
+- **Memória de longo prazo** via `MongoDBSaver`
+- Cada sessão identificada por `thread_id`
 
 ---
 
 ## 🗄️ Collections
 
 ```
-financial_db
-├── transacoes          → 71M+ docs — idx: segmento, account_number, amos_mt_desc
-├── transacoes_sample   → Vector Search index HNSW — voyage-4 1024d (autoEmbed)
-├── fatura              → Atlas Search index: autocomplete + fuzzy + facets
-└── checkpoints         → Memória de longo prazo do LangGraph
+POC (database)
+├── produtos          → 20M docs — Atlas Search index: produtos_search
+├── produtos_vector   → 500K docs — Vector Search index: produtos_vector (autoEmbed voyage-4)
+├── avaliacoes        → 5M docs — reviews dos produtos
+└── checkpoints       → Memória do LangGraph Agent
 ```
+
+---
+
+## 🔥 Queries de demo prontas
+
+### Gap textual vs semântico (momento WOW)
+| Query | Atlas Search | Vector Search |
+|---|---|---|
+| `"academia em casa"` | ❌ 0 resultados | ✅ halteres, whey, kettlebell |
+| `"presente dia dos pais"` | ❌ 0 resultados | ✅ perfumes, relógios, livros |
+| `"proteção solar rosto"` | ❌ 0 resultados | ✅ protetor solar, hidratante FPS |
+
+### Fuzzy (tolerância a erros)
+- `"adidass"` → Adidas
+- `"samsumg"` → Samsung
+- `"notebokk"` → notebook
+
+### AI Agent
+- *"Me recomende um notebook para programação até R$ 3.000"*
+- *"Compare os melhores smartphones Samsung vs Apple"*
+- *"Preciso de um presente para alguém que gosta de academia"*
 
 ---
 
 ## ⚙️ Setup
 
 ### Pré-requisitos
-- AWS EC2 m5.2xlarge (ou superior)
-- MongoDB Atlas cluster com MongoDB 8.0+
+- MongoDB Atlas cluster 8.0+
 - Conta Anthropic (Claude Haiku)
 - Python 3.11+
 
 ### Instalação
 
 ```bash
-git clone https://github.com/adrianofratelli-glitch/SearchXVector---Agent-POC.git
-cd SearchXVector---Agent-POC
 pip install -r requirements.txt
 ```
 
 ### Variáveis de ambiente
 
-Crie um arquivo `.env` na raiz do projeto:
+Crie um arquivo `.env`:
 
 ```env
 MONGODB_URI=mongodb+srv://<user>:<password>@<cluster>.mongodb.net/
-DB_NAME=financial_db
+DB_NAME=POC
 ANTHROPIC_API_KEY=sk-ant-...
 ```
 
-### Executar
+### Executar localmente
 
 ```bash
-streamlit run app.py --server.port 8501 --server.address 0.0.0.0
+streamlit run app_marketplace.py
 ```
 
-Ou via systemd (auto-start):
+### Executar em EC2
 
 ```bash
-sudo systemctl enable streamlit-inter
-sudo systemctl start streamlit-inter
+bash setup.sh   # primeira vez
+bash start.sh   # sempre que religar
 ```
 
 ---
 
-## 🔑 Por que MongoDB para AI Agents?
-
-| Necessidade | Solução MongoDB Atlas |
-|---|---|
-| Busca semântica | Vector Search + autoEmbed (sem pipeline externo) |
-| Busca textual | Atlas Search — autocomplete, fuzzy, facets, highlight |
-| Análise transacional | Aggregation Framework — $match, $group, $sort, $lookup |
-| Memória do agente | MongoDBSaver — checkpoints nativos do LangGraph |
-| Escalabilidade | 71M+ documentos com latência < 10ms por query |
-
-> **autoEmbed** elimina a necessidade de um serviço de embedding separado — a query string é enviada diretamente ao `$vectorSearch` e o Atlas gera o vetor internamente usando VoyageAI voyage-4.
-
----
-
-## 📁 Estrutura do projeto
+## 🗂️ Estrutura do projeto
 
 ```
 .
-├── app.py                        # Aplicação principal Streamlit + LangGraph
-├── architecture-banco-inter.html # Diagrama de arquitetura
-├── architecture-banco-inter.pdf  # Diagrama de arquitetura (PDF)
-├── .env                          # Variáveis de ambiente (não commitado)
+├── app_marketplace.py     # App principal — Streamlit + LangGraph
+├── populate_marketplace.py # Popula 20M docs sintéticos
+├── requirements.txt
+├── setup.sh               # Bootstrap EC2
+├── start.sh               # Start/restart app
 └── README.md
 ```
 
@@ -135,7 +145,6 @@ sudo systemctl start streamlit-inter
 ![LangGraph](https://img.shields.io/badge/LangGraph-ReAct-7C6DD8?style=flat)
 ![Claude](https://img.shields.io/badge/Claude-Haiku%204.5-FF6B4A?style=flat)
 ![Streamlit](https://img.shields.io/badge/Streamlit-1.x-FF4B4B?style=flat&logo=streamlit&logoColor=white)
-![AWS](https://img.shields.io/badge/AWS-EC2%20m5.2xlarge-232F3E?style=flat&logo=amazon-aws)
 
 ---
 

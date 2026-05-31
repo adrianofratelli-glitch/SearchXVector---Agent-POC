@@ -3,8 +3,7 @@ langchain
 langchain-community
 langchain-mongodb
 langgraph
-langchain-ollama
-voyageai
+langchain-anthropic
 streamlit
 python-dotenv
 langgraph-checkpoint-mongodb

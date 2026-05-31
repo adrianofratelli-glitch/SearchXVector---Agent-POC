@@ -1,5 +1,5 @@
 #!/bin/bash
-# start.sh — Inicia a POC (rode sempre que religar a VM)
+# start.sh — Inicia a POC Marketplace
 
 export PATH=$PATH:/home/ssm-user/.local/bin
 
@@ -8,7 +8,7 @@ sleep 1
 
 cd "$(dirname "$0")"
 
-nohup streamlit run app.py \
+nohup streamlit run app_marketplace.py \
   --server.port 8501 \
   --server.address 0.0.0.0 \
   > ~/streamlit.log 2>&1 &
