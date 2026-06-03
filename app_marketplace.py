@@ -5,6 +5,7 @@ import time
 import warnings
 import streamlit as st
 import pandas as pd
+import altair as alt
 from pymongo import MongoClient
 from pymongo.errors import PyMongoError, ExecutionTimeout
 from dotenv import load_dotenv
@@ -12,6 +13,7 @@ from langchain_anthropic import ChatAnthropic
 from langchain_core.tools import tool
 from langgraph.prebuilt import create_react_agent
 from langgraph.checkpoint.mongodb import MongoDBSaver
+from streamlit_mongodb_theme import inject_mongodb_theme, mdb_header, mdb_metric_card, mdb_cluster_status
 
 # Console limpo — esconde warnings de deprecation do LangGraph/LangChain
 warnings.filterwarnings("ignore")
@@ -22,41 +24,7 @@ MONGODB_URI = os.getenv("MONGODB_URI")
 DB_NAME     = os.getenv("DB_NAME", "POC")
 
 st.set_page_config(page_title="Marketplace × MongoDB Atlas", page_icon="🛒", layout="wide")
-
-# ══════════════════════════════════════════════════════════════════
-# MONGODB THEME
-# ══════════════════════════════════════════════════════════════════
-st.markdown("""
-<style>
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
-    html, body, [class*="css"] { font-family: 'Inter', sans-serif; }
-    .stApp { background-color: #001E2B; color: #FFFFFF; }
-    section[data-testid="stSidebar"] { background-color: #00141C; }
-    .stTabs [data-baseweb="tab-list"] { background-color: #00283A; border-radius: 8px; padding: 4px; gap: 4px; }
-    .stTabs [data-baseweb="tab"] { background-color: transparent; color: #B8C4C2; border-radius: 6px; font-weight: 500; padding: 8px 16px; }
-    .stTabs [aria-selected="true"] { background-color: #00ED64 !important; color: #001E2B !important; font-weight: 700; }
-    .stButton > button { background-color: #00ED64; color: #001E2B; font-weight: 700; border: none; border-radius: 6px; }
-    .stButton > button:hover { background-color: #00BA4A; color: #001E2B; border: none; }
-    .stFormSubmitButton > button { background-color: #00ED64 !important; color: #001E2B !important; font-weight: 700 !important; border: none !important; border-radius: 6px !important; }
-    .stTextInput > div > div > input { background-color: #00283A; color: #FFFFFF; border: 1px solid #00684A; border-radius: 6px; }
-    .stTextInput > div > div > input:focus { border-color: #00ED64; box-shadow: 0 0 0 1px #00ED64; }
-    .stTextArea textarea { background-color: #00283A !important; color: #00ED64 !important; border: 1px solid #00684A !important; border-radius: 6px !important; font-family: 'Courier New', monospace !important; font-size: 13px !important; }
-    .stSelectbox > div > div, .stMultiSelect > div > div { background-color: #00283A; border: 1px solid #00684A; border-radius: 6px; }
-    [data-testid="metric-container"] { background-color: #00283A; border: 1px solid #00684A; border-radius: 8px; padding: 12px 16px; }
-    [data-testid="metric-container"] label { color: #B8C4C2 !important; }
-    [data-testid="metric-container"] [data-testid="stMetricValue"] { color: #00ED64 !important; font-weight: 700; }
-    .stDataFrame { border: 1px solid #00684A; border-radius: 8px; }
-    .streamlit-expanderHeader { background-color: #00283A !important; color: #00ED64 !important; border-radius: 6px !important; font-weight: 600 !important; }
-    .streamlit-expanderContent { background-color: #00283A !important; border: 1px solid #00684A !important; }
-    hr { border-color: #00684A; }
-    h1 { color: #00ED64 !important; font-weight: 700; }
-    h2, h3 { color: #FFFFFF !important; }
-    code { background-color: #00283A; color: #00ED64; border-radius: 4px; }
-    .mongo-badge { background-color: #00ED64; color: #001E2B; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 700; }
-    .status-ok { color: #00ED64; font-weight: 600; }
-    .status-bad { color: #FF6B6B; font-weight: 600; }
-</style>
-""", unsafe_allow_html=True)
+inject_mongodb_theme()
 
 # ══════════════════════════════════════════════════════════════════
 # INIT — com validação de conexão
@@ -65,7 +33,7 @@ st.markdown("""
 def init_resources():
     mongo = MongoClient(MONGODB_URI, serverSelectionTimeoutMS=5000)
     mongo.admin.command("ping")  # valida conexão
-    llm   = ChatAnthropic(model="claude-haiku-4-5", temperature=0)
+    llm   = ChatAnthropic(model="claude-haiku-4-5-20251001", temperature=0)
     return mongo, llm
 
 try:
@@ -174,13 +142,13 @@ def show_searchmeta(search_op: dict):
                 mx = max(b["count"] for b in cat_bkts) or 1
                 for b in cat_bkts:
                     pct = b["count"] / mx
-                    st.markdown(
+                    st.html(
                         f"<div style='display:flex;align-items:center;gap:8px;margin:4px 0;'>"
-                        f"<span style='width:160px;font-size:12px;color:#B8C4C2;'>{b['_id']}</span>"
-                        f"<div style='flex:1;background:#00283A;border-radius:4px;height:8px;'>"
-                        f"<div style='width:{pct*100:.0f}%;background:#00ED64;border-radius:4px;height:8px;'></div></div>"
-                        f"<span style='width:50px;font-size:12px;color:#00ED64;text-align:right;'>{b['count']:,}</span>"
-                        f"</div>", unsafe_allow_html=True
+                        f"<span style='width:160px;font-size:12px;color:#8B949E;font-family:Space Grotesk,sans-serif;'>{b['_id']}</span>"
+                        f"<div style='flex:1;background:rgba(255,255,255,0.06);border-radius:4px;height:6px;'>"
+                        f"<div style='width:{pct*100:.0f}%;background:#00ED64;border-radius:4px;height:6px;'></div></div>"
+                        f"<span style='width:50px;font-size:12px;color:#00ED64;text-align:right;font-family:JetBrains Mono,monospace;'>{b['count']:,}</span>"
+                        f"</div>"
                     )
             else:
                 st.caption("Sem dados de categoria.")
@@ -192,13 +160,13 @@ def show_searchmeta(search_op: dict):
                 for i, b in enumerate(prc_bkts):
                     pct   = b["count"] / mx
                     label = labels[i] if i < len(labels) else f"Faixa {i+1}"
-                    st.markdown(
+                    st.html(
                         f"<div style='display:flex;align-items:center;gap:8px;margin:4px 0;'>"
-                        f"<span style='width:100px;font-size:12px;color:#B8C4C2;'>{label}</span>"
-                        f"<div style='flex:1;background:#00283A;border-radius:4px;height:8px;'>"
-                        f"<div style='width:{pct*100:.0f}%;background:#00684A;border-radius:4px;height:8px;'></div></div>"
-                        f"<span style='width:50px;font-size:12px;color:#B8C4C2;text-align:right;'>{b['count']:,}</span>"
-                        f"</div>", unsafe_allow_html=True
+                        f"<span style='width:100px;font-size:12px;color:#8B949E;font-family:Space Grotesk,sans-serif;'>{label}</span>"
+                        f"<div style='flex:1;background:rgba(255,255,255,0.06);border-radius:4px;height:6px;'>"
+                        f"<div style='width:{pct*100:.0f}%;background:#A371F7;border-radius:4px;height:6px;'></div></div>"
+                        f"<span style='width:50px;font-size:12px;color:#8B949E;text-align:right;font-family:JetBrains Mono,monospace;'>{b['count']:,}</span>"
+                        f"</div>"
                     )
             else:
                 st.caption("Sem dados de preço.")
@@ -346,37 +314,37 @@ agent_executor = build_agent()
 # SIDEBAR — Status do Cluster
 # ══════════════════════════════════════════════════════════════════
 with st.sidebar:
-    st.markdown("### 🍃 Status do Cluster")
-    st.markdown(f"**Database:** `{DB_NAME}`")
-    st.markdown(f"**Conexão:** <span class='status-ok'>● Online</span>", unsafe_allow_html=True)
-    st.divider()
-    st.markdown("**Collections**")
-    try:
-        for col in ["produtos", "produtos_vector", "avaliacoes"]:
-            cnt = db[col].estimated_document_count()
-            st.markdown(f"`{col}` — {cnt:,} docs")
-    except Exception:
-        st.caption("Não foi possível contar os documentos.")
-    st.divider()
-    st.markdown("**Índices necessários**")
-    st.markdown("`produtos_search` — Atlas Search")
-    st.markdown("`produtos_vector` — Vector Search")
-    st.caption("Confirme que ambos estão READY no Atlas UI.")
+    # Conta docs reais das collections
+    _col_counts = {}
+    for _c in ["produtos", "produtos_vector", "avaliacoes"]:
+        try:
+            _col_counts[_c] = db[_c].estimated_document_count()
+        except Exception:
+            _col_counts[_c] = 0
+
+    mdb_cluster_status(
+        db_name=DB_NAME,
+        online=True,
+        collections=_col_counts,
+        indices=[
+            ("produtos_search",  "Atlas Search"),
+            ("produtos_vector",  "Vector Search"),
+        ]
+    )
 
 # ══════════════════════════════════════════════════════════════════
 # HEADER
 # ══════════════════════════════════════════════════════════════════
-st.markdown("""
-<h1 style='margin-bottom:0'>🛒 Marketplace × MongoDB Atlas</h1>
-<p style='color:#B8C4C2;margin-top:4px;'>
-    <span class='mongo-badge'>Atlas Search</span>&nbsp;
-    <span class='mongo-badge'>Vector Search</span>&nbsp;
-    <span class='mongo-badge'>Hybrid RRF</span>&nbsp;
-    <span class='mongo-badge'>AI Agent</span>&nbsp;
-    <span style='color:#5C7080;font-size:13px;margin-left:8px;'>5M docs · voyage-4 autoEmbed · LangGraph ReAct</span>
-</p>
-""", unsafe_allow_html=True)
-st.divider()
+mdb_header(
+    title="🛒 Marketplace × MongoDB Atlas",
+    subtitle="20M docs · voyage-4 autoEmbed · LangGraph ReAct · db: POC",
+    pills=[
+        {"label": "Atlas Search",  "color": "green"},
+        {"label": "Vector Search", "color": "blue"},
+        {"label": "Hybrid RRF",    "color": "purple"},
+        {"label": "AI Agent",      "color": "orange"},
+    ]
+)
 
 tab_search, tab_compare, tab_rrf, tab_agent = st.tabs([
     "🔍 Atlas Search", "⚡ Search vs Vector", "🔀 Hybrid RRF", "🤖 AI Agent"
@@ -444,14 +412,22 @@ with tab_search:
             }
 
         pipeline = [
-            {"$search": {"index": "produtos_search", **search_op}},
+            {"$search": {
+                "index": "produtos_search",
+                **search_op,
+                "count": {"type": "total"},
+                "highlight": {"path": ["nome", "descricao"], "maxCharsToExamine": 500, "maxNumPassages": 1}
+            }},
             {"$match": mql_filter},
             {"$limit": 50},
+            {"$addFields": {"_total_matches": "$$SEARCH_META.count.total"}},
             {"$project": {
                 "nome": 1, "marca": 1, "categoria": 1, "subcategoria": 1,
                 "preco": 1, "preco_original": 1, "desconto_pct": 1,
                 "avaliacao_media": 1, "total_avaliacoes": 1,
-                "em_estoque": 1, "score": {"$meta": "searchScore"}
+                "em_estoque": 1, "score": {"$meta": "searchScore"},
+                "highlights": {"$meta": "searchHighlights"},
+                "_total_matches": 1
             }}
         ]
 
@@ -470,12 +446,21 @@ with tab_search:
                 results.sort(key=lambda x: x.get("avaliacao_media", 0), reverse=True)
 
             prices = [r.get("preco", 0) for r in results]
-            m1, m2, m3, m4, m5 = st.columns(5)
-            m1.metric("Resultados",  f"{len(results):,}")
-            m2.metric("Menor Preço", f"R$ {min(prices):,.2f}")
-            m3.metric("Maior Preço", f"R$ {max(prices):,.2f}")
-            m4.metric("Preço Médio", f"R$ {sum(prices)/len(prices):,.2f}")
-            m5.metric("Latência",    f"{elapsed:.0f} ms")
+            total_matches = results[0].get("_total_matches") if results else None
+            m1, m2, m3, m4, m5, m6 = st.columns(6)
+            with m1:
+                mdb_metric_card("Exibindo", f"{len(results):,}", f"de {total_matches:,}" if total_matches else "")
+            with m2:
+                mdb_metric_card("Total Atlas", f"{total_matches:,}" if total_matches else "—",
+                                "docs no índice", color="green", badge="ATLAS")
+            with m3:
+                mdb_metric_card("Menor Preço", f"R$ {min(prices):,.2f}")
+            with m4:
+                mdb_metric_card("Maior Preço", f"R$ {max(prices):,.2f}")
+            with m5:
+                mdb_metric_card("Preço Médio", f"R$ {sum(prices)/len(prices):,.2f}")
+            with m6:
+                mdb_metric_card("Latência", f"{elapsed:.0f}", "ms", color="yellow")
 
             if use_synonyms:
                 st.info("🔤 **Sinônimos ativos** — ex: 'notebook' expande para 'laptop', 'computador'", icon="✅")
@@ -484,21 +469,28 @@ with tab_search:
             show_searchmeta(search_op)
             st.divider()
 
-            st.markdown(
+            st.html(
                 "<div style='display:grid;grid-template-columns:3fr 1fr 1fr 1fr 1fr;"
-                "font-weight:600;padding:6px 0;border-bottom:1px solid #00684A;"
-                "color:#B8C4C2;font-size:13px;'>"
+                "font-weight:600;padding:8px 4px;border-bottom:1px solid rgba(255,255,255,0.08);"
+                "color:#484F58;font-size:11px;letter-spacing:0.07em;text-transform:uppercase;"
+                "font-family:Space Grotesk,sans-serif;margin-bottom:4px;'>"
                 "<span>Produto</span><span>Preço</span><span>Categoria</span>"
-                "<span>Avaliação</span><span>Estoque</span></div>",
-                unsafe_allow_html=True
+                "<span>Avaliação</span><span>Estoque</span></div>"
             )
             for r in results[:30]:
-                nome_hl   = render_highlight(r.get("nome", ""), search_query)
-                preco     = r.get("preco", 0)
-                desc      = r.get("desconto_pct")
+                nome = r.get("nome", "")
+
+                # Highlight Python-side: marca SOMENTE o prefixo digitado no nome
+                # (ex: "adid" → "**adid**as Stan Smith")
+                # Isso demonstra o autocomplete — o usuário vê exatamente o que digitou
+                nome_hl = render_highlight(nome, search_query)
+
+                preco = r.get("preco", 0)
+                desc  = r.get("desconto_pct")
                 preco_str = f"R$ {preco:,.2f}"
                 if desc:
-                    preco_str += f" <small style='color:#00ED64'>-{desc}%</small>"
+                    preco_str += f" <small style='color:#00ED64;'>-{desc}%</small>"
+
                 c1, c2, c3, c4, c5 = st.columns([3, 1, 1, 1, 1])
                 c1.markdown(nome_hl, unsafe_allow_html=True)
                 c2.markdown(preco_str, unsafe_allow_html=True)
@@ -548,53 +540,77 @@ with tab_compare:
         search_pipeline = [
             {"$search": {"index": "produtos_search",
                          "phrase": {"query": compare_query, "path": "nome"}}},
-            {"$limit": 8},
+            {"$limit": 10},
             {"$project": {"nome": 1, "marca": 1, "categoria": 1, "preco": 1,
                           "avaliacao_media": 1, "score": {"$meta": "searchScore"}}}
         ]
         vector_pipeline = [
             {"$vectorSearch": {"index": "produtos_vector", "path": "descricao",
-                               "query": compare_query, "numCandidates": 150, "limit": 8}},
+                               "query": compare_query, "numCandidates": 150, "limit": 10}},
             {"$project": {"nome": 1, "marca": 1, "categoria": 1, "preco": 1,
                           "avaliacao_media": 1, "score": {"$meta": "vectorSearchScore"}}}
         ]
 
-        col_l, col_r = st.columns(2)
+        col_l, col_m, col_r = st.columns(3)
+
+        t0 = time.time()
+        text_res, err_s = safe_aggregate("produtos", search_pipeline)
+        vec_res,  err_v = safe_aggregate("produtos_vector", vector_pipeline)
+        elapsed = (time.time() - t0) * 1000
+
         with col_l:
             st.markdown("### 🔤 Atlas Search\n*Encontra onde a frase aparece literalmente*")
-            t0 = time.time()
-            text_res, err = safe_aggregate("produtos", search_pipeline)
-            elapsed = (time.time() - t0) * 1000
-            if err:
-                st.error(f"Erro: {err}")
+            st.caption(f"⏱ {elapsed:.0f} ms · {len(text_res) if text_res else 0} resultados")
+            if err_s:
+                st.error(f"Erro: {err_s}")
+            elif text_res:
+                st.dataframe(pd.DataFrame([{
+                    "Produto": r["nome"], "Categoria": r.get("categoria",""),
+                    "Preço": f"R$ {r['preco']:,.2f}", "⭐": f"{r.get('avaliacao_media',0):.1f}",
+                    "Score": round(r.get("score",0), 3)
+                } for r in text_res]), use_container_width=True, hide_index=True)
             else:
-                st.caption(f"⏱ {elapsed:.0f} ms · {len(text_res)} resultados")
-                if text_res:
-                    st.dataframe(pd.DataFrame([{
-                        "Produto": r["nome"], "Categoria": r.get("categoria",""),
-                        "Preço": f"R$ {r['preco']:,.2f}", "⭐": f"{r.get('avaliacao_media',0):.1f}",
-                        "Score": round(r.get("score",0), 3)
-                    } for r in text_res]), use_container_width=True, hide_index=True)
-                else:
-                    st.warning("⚠️ Sem resultados — a frase não existe nos documentos.")
+                st.warning("⚠️ Sem resultados — a frase não existe nos documentos.")
+
+        with col_m:
+            st.markdown("### 🧠 Vector Search\n*Encontra pelo significado, mesmo sem a palavra exata*")
+            st.caption(f"⏱ {elapsed:.0f} ms · {len(vec_res) if vec_res else 0} resultados")
+            if err_v:
+                st.error(f"Erro: {err_v}")
+            elif vec_res:
+                st.dataframe(pd.DataFrame([{
+                    "Produto": r["nome"], "Categoria": r.get("categoria",""),
+                    "Preço": f"R$ {r['preco']:,.2f}", "⭐": f"{r.get('avaliacao_media',0):.1f}",
+                    "Score": round(r.get("score",0), 4)
+                } for r in vec_res]), use_container_width=True, hide_index=True)
+            else:
+                st.info("Sem resultados semânticos.")
 
         with col_r:
-            st.markdown("### 🧠 Vector Search\n*Encontra pelo significado, mesmo sem a palavra exata*")
-            t0 = time.time()
-            vec_res, err = safe_aggregate("produtos_vector", vector_pipeline)
-            elapsed = (time.time() - t0) * 1000
-            if err:
-                st.error(f"Erro: {err}")
+            st.markdown("### 🏆 Hybrid RRF\n*O melhor dos dois mundos combinados*")
+            rrf_map = {}
+            for rank, doc in enumerate(text_res or []):
+                k = doc["nome"]
+                rrf_map.setdefault(k, {"doc": doc, "rrf": 0, "s": None, "v": None})
+                rrf_map[k]["rrf"] += 1 / (60 + rank + 1)
+                rrf_map[k]["s"] = rank + 1
+            for rank, doc in enumerate(vec_res or []):
+                k = doc["nome"]
+                rrf_map.setdefault(k, {"doc": doc, "rrf": 0, "s": None, "v": None})
+                rrf_map[k]["rrf"] += 1 / (60 + rank + 1)
+                rrf_map[k]["v"] = rank + 1
+            fused = sorted(rrf_map.values(), key=lambda x: x["rrf"], reverse=True)[:10]
+            st.caption(f"⏱ {elapsed:.0f} ms · {len(fused)} resultados (fusão k=60)")
+            if fused:
+                st.dataframe(pd.DataFrame([{
+                    "Produto": x["doc"].get("nome",""),
+                    "Categoria": x["doc"].get("categoria",""),
+                    "Preço": f"R$ {x['doc'].get('preco',0):,.2f}",
+                    "Score RRF": round(x["rrf"], 5),
+                    "Nos dois": "🏆" if x["s"] and x["v"] else ""
+                } for x in fused]), use_container_width=True, hide_index=True)
             else:
-                st.caption(f"⏱ {elapsed:.0f} ms · {len(vec_res)} resultados")
-                if vec_res:
-                    st.dataframe(pd.DataFrame([{
-                        "Produto": r["nome"], "Categoria": r.get("categoria",""),
-                        "Preço": f"R$ {r['preco']:,.2f}", "⭐": f"{r.get('avaliacao_media',0):.1f}",
-                        "Score": round(r.get("score",0), 4)
-                    } for r in vec_res]), use_container_width=True, hide_index=True)
-                else:
-                    st.info("Sem resultados semânticos.")
+                st.info("Sem resultados na fusão.")
 
         st.divider()
         col_sl, col_vl = st.columns(2)
@@ -648,13 +664,21 @@ with tab_rrf:
             st.error(f"Erro: {err_s or err_v}")
         else:
             rrf_scores = {}
+            # Dedup por nome dentro de cada lista: só o melhor rank conta (1ª ocorrência = rank mais alto)
+            seen_s, seen_v = set(), set()
             for rank, doc in enumerate(search_res):
                 k = doc["nome"]
+                if k in seen_s:
+                    continue  # ignora duplicatas — evita score inflado
+                seen_s.add(k)
                 rrf_scores.setdefault(k, {"doc": doc, "rrf": 0, "search_rank": None, "vector_rank": None})
                 rrf_scores[k]["rrf"] += 1 / (rrf_k + rank + 1)
                 rrf_scores[k]["search_rank"] = rank + 1
             for rank, doc in enumerate(vector_res):
                 k = doc["nome"]
+                if k in seen_v:
+                    continue  # ignora duplicatas
+                seen_v.add(k)
                 rrf_scores.setdefault(k, {"doc": doc, "rrf": 0, "search_rank": None, "vector_rank": None})
                 rrf_scores[k]["rrf"] += 1 / (rrf_k + rank + 1)
                 rrf_scores[k]["vector_rank"] = rank + 1
@@ -693,6 +717,39 @@ with tab_rrf:
                 c1.metric("Só Atlas Search",  only_s)
                 c2.metric("Só Vector Search", only_v)
                 c3.metric("Nos dois 🏆",       both)
+
+                # Score chart — shows visually why RRF is superior
+                st.divider()
+                st.markdown("**Score por produto — Top 10**")
+                chart_data = []
+                for i, x in enumerate(fused[:10]):
+                    nome = x["doc"].get("nome", f"Produto {i+1}")[:35]
+                    s_rank = x["search_rank"]
+                    v_rank = x["vector_rank"]
+                    s_score = round(1 / (rrf_k + s_rank), 5) if s_rank else 0
+                    v_score = round(1 / (rrf_k + v_rank), 5) if v_rank else 0
+                    chart_data.append({"Produto": nome, "Engine": "Atlas Search",  "Score": s_score})
+                    chart_data.append({"Produto": nome, "Engine": "Vector Search", "Score": v_score})
+                    chart_data.append({"Produto": nome, "Engine": "RRF (fusão)",   "Score": round(x["rrf"], 5)})
+                chart_df = pd.DataFrame(chart_data)
+                chart = (
+                    alt.Chart(chart_df)
+                    .mark_bar()
+                    .encode(
+                        x=alt.X("Score:Q", title="Score"),
+                        y=alt.Y("Produto:N", sort="-x", title=None),
+                        color=alt.Color("Engine:N", scale=alt.Scale(
+                            domain=["Atlas Search", "Vector Search", "RRF (fusão)"],
+                            range=["#00684A", "#00B4D8", "#00ED64"]
+                        )),
+                        tooltip=["Produto", "Engine", "Score"],
+                        xOffset="Engine:N"
+                    )
+                    .properties(height=320, background="#001E2B")
+                    .configure_axis(labelColor="#B8C4C2", titleColor="#B8C4C2", gridColor="#00283A")
+                    .configure_legend(labelColor="#B8C4C2", titleColor="#B8C4C2")
+                )
+                st.altair_chart(chart, use_container_width=True)
                 st.divider()
                 col_sl, col_vl = st.columns(2)
                 with col_sl:
@@ -720,13 +777,13 @@ with tab_agent:
 
     col_new, _ = st.columns([1, 4])
     with col_new:
-        if st.button("🔄 Nova conversa", use_container_width=True):
+        if st.button("🔄 Nova conversa", use_container_width=True, type="secondary"):
             st.session_state.chat_history = []
             st.session_state.thread_id    = str(uuid.uuid4())
             st.rerun()
 
     if not st.session_state.chat_history:
-        st.write("**💡 Experimente:**")
+        st.caption("💡 **Experimente uma dessas perguntas:**")
         suggestions = [
             "Me recomende um notebook para programação até R$ 3.000",
             "Qual o melhor smartphone custo-benefício até R$ 2.500?",
@@ -735,12 +792,13 @@ with tab_agent:
         ]
         cols = st.columns(2)
         for i, sug in enumerate(suggestions):
-            if cols[i % 2].button(sug, use_container_width=True):
+            if cols[i % 2].button(sug, use_container_width=True, type="secondary"):
                 st.session_state.pending_prompt = sug
         st.divider()
 
+    _avatars = {"user": "👤", "assistant": "🍃"}
     for msg in st.session_state.chat_history:
-        with st.chat_message(msg["role"]):
+        with st.chat_message(msg["role"], avatar=_avatars.get(msg["role"])):
             st.write(msg["content"])
 
     pending    = st.session_state.pop("pending_prompt", None)
@@ -748,9 +806,9 @@ with tab_agent:
 
     if user_input:
         st.session_state.chat_history.append({"role": "user", "content": user_input})
-        with st.chat_message("user"):
+        with st.chat_message("user", avatar="👤"):
             st.write(user_input)
-        with st.chat_message("assistant"):
+        with st.chat_message("assistant", avatar="🍃"):
             with st.spinner("🤔 Buscando produtos..."):
                 try:
                     t0       = time.time()
