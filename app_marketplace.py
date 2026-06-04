@@ -13,7 +13,10 @@ from langchain_anthropic import ChatAnthropic
 from langchain_core.tools import tool
 from langgraph.prebuilt import create_react_agent
 from langgraph.checkpoint.mongodb import MongoDBSaver
-from streamlit_mongodb_theme import inject_mongodb_theme, mdb_header, mdb_metric_card, mdb_cluster_status
+from streamlit_mongodb_theme import (
+    inject_mongodb_theme, mdb_header, mdb_metric_card, mdb_cluster_status,
+    mdb_sidebar, mdb_kpi_card,
+)
 
 # Console limpo — esconde warnings de deprecation do LangGraph/LangChain
 warnings.filterwarnings("ignore")
@@ -293,6 +296,61 @@ def produtos_por_faixa_preco(categoria: str, preco_min: float, preco_max: float)
         f"- {r['nome']} | R$ {r['preco']:.2f} | ⭐ {r['avaliacao_media']:.1f}" for r in results
     ])
 
+# ── Transparência: metadados das tools p/ exibir o trace ReAct ────────
+TOOL_META = {
+    "busca_semantica": {
+        "icon": "🧠", "engine": "Vector Search", "color": "#0498EC",
+        "collection": "produtos_vector",
+    },
+    "buscar_produto": {
+        "icon": "🔤", "engine": "Atlas Search", "color": "#00ED64",
+        "collection": "produtos",
+    },
+    "comparar_categoria": {
+        "icon": "📊", "engine": "Aggregation", "color": "#B45AF2",
+        "collection": "produtos",
+    },
+    "produtos_por_faixa_preco": {
+        "icon": "💰", "engine": "Aggregation", "color": "#FFC010",
+        "collection": "produtos",
+    },
+}
+
+def reconstruct_mql(tool_name: str, args: dict) -> list:
+    """Reconstrói o pipeline MQL que cada tool executa, para transparência no trace."""
+    if tool_name == "busca_semantica":
+        return [
+            {"$vectorSearch": {"index": "produtos_vector", "path": "descricao",
+                               "query": args.get("consulta", ""), "numCandidates": 150, "limit": 10}},
+            {"$project": {"nome": 1, "preco": 1, "categoria": 1, "avaliacao_media": 1,
+                          "score": {"$meta": "vectorSearchScore"}}}
+        ]
+    if tool_name == "buscar_produto":
+        return [
+            {"$search": {"index": "produtos_search",
+                         "autocomplete": {"query": args.get("nome", ""), "path": "nome",
+                                          "fuzzy": {"maxEdits": 1}}}},
+            {"$limit": 10},
+            {"$project": {"nome": 1, "preco": 1, "em_estoque": 1, "avaliacao_media": 1,
+                          "score": {"$meta": "searchScore"}}}
+        ]
+    if tool_name == "comparar_categoria":
+        return [
+            {"$match": {"categoria": args.get("categoria", ""), "em_estoque": True}},
+            {"$sort": {"avaliacao_media": -1, "total_avaliacoes": -1}},
+            {"$limit": args.get("limite", 10)},
+            {"$project": {"nome": 1, "preco": 1, "avaliacao_media": 1, "total_avaliacoes": 1}}
+        ]
+    if tool_name == "produtos_por_faixa_preco":
+        return [
+            {"$match": {"categoria": args.get("categoria", ""), "em_estoque": True,
+                        "preco": {"$gte": args.get("preco_min", 0), "$lte": args.get("preco_max", 0)}}},
+            {"$sort": {"avaliacao_media": -1}},
+            {"$limit": 10},
+            {"$project": {"nome": 1, "preco": 1, "avaliacao_media": 1}}
+        ]
+    return []
+
 SYSTEM_PROMPT = """Você é um assistente especialista em recomendações de produtos de um marketplace.
 Responda SEMPRE em português brasileiro de forma concisa e objetiva.
 Use as ferramentas disponíveis para buscar dados reais antes de responder.
@@ -311,10 +369,9 @@ def build_agent():
 agent_executor = build_agent()
 
 # ══════════════════════════════════════════════════════════════════
-# SIDEBAR — Status do Cluster
+# SIDEBAR — Nav estilo MongoDB Atlas Dashboard
 # ══════════════════════════════════════════════════════════════════
 with st.sidebar:
-    # Conta docs reais das collections
     _col_counts = {}
     for _c in ["produtos", "produtos_vector", "avaliacoes"]:
         try:
@@ -322,7 +379,7 @@ with st.sidebar:
         except Exception:
             _col_counts[_c] = 0
 
-    mdb_cluster_status(
+    mdb_sidebar(
         db_name=DB_NAME,
         online=True,
         collections=_col_counts,
@@ -333,11 +390,11 @@ with st.sidebar:
     )
 
 # ══════════════════════════════════════════════════════════════════
-# HEADER
+# HEADER — estilo Atlas Dashboard com breadcrumb + KPI row
 # ══════════════════════════════════════════════════════════════════
 mdb_header(
-    title="🛒 Marketplace × MongoDB Atlas",
-    subtitle="20M docs · voyage-4 autoEmbed · LangGraph ReAct · db: POC",
+    title="Marketplace × MongoDB Atlas",
+    subtitle=f"db: {DB_NAME}  ·  20M docs  ·  voyage-4 autoEmbed  ·  LangGraph ReAct",
     pills=[
         {"label": "Atlas Search",  "color": "green"},
         {"label": "Vector Search", "color": "blue"},
@@ -345,6 +402,67 @@ mdb_header(
         {"label": "AI Agent",      "color": "orange"},
     ]
 )
+
+# ── KPI row — métricas 100% reais medidas no cluster ──────────────
+@st.cache_data(ttl=60, show_spinner=False)
+def _measure_search_latency():
+    """Mede latência real de uma query $search leve no Atlas. Retorna ms ou None."""
+    try:
+        t0 = time.time()
+        list(db["produtos"].aggregate([
+            {"$search": {"index": "produtos_search",
+                         "text": {"query": "nike", "path": "nome"}}},
+            {"$limit": 1},
+            {"$project": {"_id": 1}}
+        ], maxTimeMS=QUERY_TIMEOUT_MS))
+        return (time.time() - t0) * 1000
+    except Exception:
+        return None
+
+def _fmt_count(n):
+    """Formata contagem: 5_000_000 → '5.0M', 200_000 → '200k', 950 → '950'."""
+    if n >= 1_000_000:
+        return f"{n/1_000_000:.1f}M"
+    if n >= 1_000:
+        return f"{n/1_000:.0f}k"
+    return str(n)
+
+_lat = _measure_search_latency()
+_n_prod = _col_counts.get("produtos", 0)
+_n_vec  = _col_counts.get("produtos_vector", 0)
+_n_aval = _col_counts.get("avaliacoes", 0)
+
+_k1, _k2, _k3, _k4 = st.columns(4)
+with _k1:
+    mdb_kpi_card(
+        "Documentos",
+        _fmt_count(_n_prod),
+        "produtos indexados",
+        delta_type="up" if _n_prod else "", color="green"
+    )
+with _k2:
+    mdb_kpi_card(
+        "Latência Atlas Search",
+        f"{_lat:.0f}ms" if _lat is not None else "—",
+        "medido agora · query 'nike'" if _lat is not None else "índice indisponível",
+        delta_type="up" if (_lat is not None and _lat < 50) else "warn", color="teal"
+    )
+with _k3:
+    mdb_kpi_card(
+        "Vetores Indexados",
+        _fmt_count(_n_vec),
+        "embeddings · voyage-4",
+        delta_type="up" if _n_vec else "", color="blue"
+    )
+with _k4:
+    mdb_kpi_card(
+        "Avaliações",
+        _fmt_count(_n_aval),
+        "reviews p/ o AI Agent",
+        color="purple"
+    )
+
+st.html('<div style="height:8px;"></div>')
 
 tab_search, tab_compare, tab_rrf, tab_agent = st.tabs([
     "🔍 Atlas Search", "⚡ Search vs Vector", "🔀 Hybrid RRF", "🤖 AI Agent"
@@ -637,6 +755,19 @@ with tab_rrf:
     with col_k2: n_search = st.slider("Resultados Search", 10, 50, 20)
     with col_k3: n_vector = st.slider("Resultados Vector", 10, 50, 20)
 
+    if not rrf_query:
+        st.html(
+            '<div style="text-align:center;padding:28px 0;">'
+            '<div style="font-size:30px;margin-bottom:8px;">🔀</div>'
+            '<div style="font-size:16px;font-weight:700;color:#E3FCF7;'
+            'font-family:Euclid Circular A,sans-serif;margin-bottom:4px;">'
+            'Digite uma consulta para ver a fusão RRF</div>'
+            '<div style="font-size:13px;color:#5C6C75;font-family:Euclid Circular A,sans-serif;">'
+            'Os sliders acima controlam o k e quantos resultados cada engine contribui. '
+            'Itens nos dois rankings 🏆 sobem ao topo.</div>'
+            '</div>'
+        )
+
     if rrf_query:
         s_pipe = [
             {"$search": {"index": "produtos_search", "compound": {"should": [
@@ -762,28 +893,95 @@ with tab_rrf:
 # ══════════════════════════════════════════════════════════════════
 # TAB 4 — AI Agent
 # ══════════════════════════════════════════════════════════════════
+def render_react_trace(messages):
+    """Renderiza o raciocínio ReAct do agente: cada tool chamada → MQL → resultado."""
+    # Coleta (tool_call, tool_result) emparelhados
+    calls = []
+    pending_calls = {}
+    for m in messages:
+        tcs = getattr(m, "tool_calls", None)
+        if tcs:
+            for tc in tcs:
+                pending_calls[tc.get("id")] = {"name": tc.get("name", "?"), "args": tc.get("args", {})}
+        if getattr(m, "type", "") == "tool" or m.__class__.__name__ == "ToolMessage":
+            cid = getattr(m, "tool_call_id", None)
+            info = pending_calls.get(cid, {"name": getattr(m, "name", "?"), "args": {}})
+            calls.append({"name": info["name"], "args": info["args"], "result": m.content})
+
+    if not calls:
+        return
+
+    with st.expander(f"🔍 Raciocínio do agente · {len(calls)} ferramenta(s) executada(s)", expanded=False):
+        for i, call in enumerate(calls):
+            meta = TOOL_META.get(call["name"], {"icon": "🔧", "engine": "Tool", "color": "#889397", "collection": "?"})
+            args_str = ", ".join(f"{k}={v!r}" for k, v in call["args"].items())
+            st.html(
+                f'<div style="display:flex;align-items:center;gap:10px;margin:4px 0 8px;">'
+                f'<span style="font-size:16px;">{meta["icon"]}</span>'
+                f'<span style="font-family:Source Code Pro,monospace;font-size:13px;color:#E3FCF7;font-weight:600;">'
+                f'{call["name"]}({args_str})</span>'
+                f'<span style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:4px;'
+                f'background:{meta["color"]}1A;color:{meta["color"]};border:1px solid {meta["color"]}44;'
+                f'text-transform:uppercase;letter-spacing:0.05em;">{meta["engine"]}</span>'
+                f'<span style="font-size:11px;color:#5C6C75;font-family:Source Code Pro,monospace;">'
+                f'→ {meta["collection"]}</span></div>'
+            )
+            cga, cgb = st.columns(2)
+            with cga:
+                st.caption("Pipeline MQL executado")
+                st.code(json.dumps(reconstruct_mql(call["name"], call["args"]), indent=2, ensure_ascii=False), language="json")
+            with cgb:
+                st.caption("Resultado retornado ao LLM")
+                st.code(str(call["result"])[:600], language="text")
+            if i < len(calls) - 1:
+                st.html('<div style="height:1px;background:rgba(0,237,100,0.08);margin:12px 0;"></div>')
+
+
 with tab_agent:
     st.subheader("Recomendações em Linguagem Natural")
-    st.write("LangGraph ReAct Agent + Claude Haiku + Atlas Vector Search + MongoDB Aggregation.")
-    col_i1, col_i2 = st.columns(2)
-    with col_i1:
-        st.info("💾 **Memória ativa** — histórico gravado em `checkpoints` por `thread_id`", icon="🧠")
-    with col_i2:
-        st.info("🔧 **4 ferramentas** — busca semântica, textual, por categoria e faixa de preço", icon="⚙️")
+    st.write("**LangGraph ReAct Agent** + Claude Haiku + Atlas Vector Search + MongoDB Aggregation — com raciocínio transparente.")
 
     if "chat_history" not in st.session_state:
         st.session_state.chat_history = []
         st.session_state.thread_id    = str(uuid.uuid4())
 
-    col_new, _ = st.columns([1, 4])
-    with col_new:
+    # ── Barra de status compacta (memória + ferramentas + nova conversa) ──
+    _sid = st.session_state.thread_id[:8]
+    cstat, cnew = st.columns([4, 1])
+    with cstat:
+        st.html(
+            f'<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:4px 0;">'
+            f'<span style="font-size:11px;font-weight:600;padding:3px 10px;border-radius:5px;'
+            f'background:rgba(0,237,100,0.08);color:#00ED64;border:1px solid rgba(0,237,100,0.22);'
+            f'font-family:Euclid Circular A,sans-serif;">🧠 Memória ativa · sessão #{_sid}</span>'
+            f'<span style="font-size:11px;font-weight:600;padding:3px 10px;border-radius:5px;'
+            f'background:rgba(4,152,236,0.08);color:#0498EC;border:1px solid rgba(4,152,236,0.22);'
+            f'font-family:Euclid Circular A,sans-serif;">⚙️ 4 ferramentas MongoDB</span>'
+            f'<span style="font-size:11px;font-weight:600;padding:3px 10px;border-radius:5px;'
+            f'background:rgba(180,90,242,0.08);color:#B45AF2;border:1px solid rgba(180,90,242,0.22);'
+            f'font-family:Euclid Circular A,sans-serif;">💾 checkpoints @ {DB_NAME}</span>'
+            f'</div>'
+        )
+    with cnew:
         if st.button("🔄 Nova conversa", use_container_width=True, type="secondary"):
             st.session_state.chat_history = []
             st.session_state.thread_id    = str(uuid.uuid4())
             st.rerun()
 
+    st.divider()
+
+    # ── Estado inicial (hero + sugestões) ──────────────────────────────
     if not st.session_state.chat_history:
-        st.caption("💡 **Experimente uma dessas perguntas:**")
+        st.html(
+            '<div style="text-align:center;padding:12px 0 18px;">'
+            '<div style="font-size:34px;margin-bottom:6px;">🍃</div>'
+            '<div style="font-size:17px;font-weight:700;color:#E3FCF7;'
+            'font-family:Euclid Circular A,sans-serif;margin-bottom:4px;">'
+            'Pergunte em linguagem natural</div>'
+            '<div style="font-size:13px;color:#5C6C75;font-family:Euclid Circular A,sans-serif;">'
+            'O agente escolhe entre busca semântica, textual ou agregação — e mostra o MQL que rodou.</div>'
+            '</div>'
+        )
         suggestions = [
             "Me recomende um notebook para programação até R$ 3.000",
             "Qual o melhor smartphone custo-benefício até R$ 2.500?",
@@ -794,12 +992,14 @@ with tab_agent:
         for i, sug in enumerate(suggestions):
             if cols[i % 2].button(sug, use_container_width=True, type="secondary"):
                 st.session_state.pending_prompt = sug
-        st.divider()
 
+    # ── Histórico (com trace persistido) ───────────────────────────────
     _avatars = {"user": "👤", "assistant": "🍃"}
     for msg in st.session_state.chat_history:
         with st.chat_message(msg["role"], avatar=_avatars.get(msg["role"])):
             st.write(msg["content"])
+            if msg.get("caption"):
+                st.caption(msg["caption"])
 
     pending    = st.session_state.pop("pending_prompt", None)
     user_input = st.chat_input("Pergunte sobre produtos...") or pending
@@ -809,7 +1009,7 @@ with tab_agent:
         with st.chat_message("user", avatar="👤"):
             st.write(user_input)
         with st.chat_message("assistant", avatar="🍃"):
-            with st.spinner("🤔 Buscando produtos..."):
+            with st.spinner("🧠 Agente raciocinando e consultando o MongoDB…"):
                 try:
                     t0       = time.time()
                     response = agent_executor.invoke(
@@ -819,21 +1019,18 @@ with tab_agent:
                     elapsed = (time.time() - t0) * 1000
                     answer  = response["messages"][-1].content
 
-                    # Transparência: quais ferramentas o agent chamou
-                    tools_used = []
-                    for m in response["messages"]:
-                        tcs = getattr(m, "tool_calls", None)
-                        if tcs:
-                            for tc in tcs:
-                                tools_used.append(tc.get("name", "?"))
+                    # Trace ReAct ao vivo (tools + MQL + resultados)
+                    render_react_trace(response["messages"])
 
                     st.write(answer)
+
+                    tools_used = [tc.get("name", "?")
+                                  for m in response["messages"]
+                                  for tc in (getattr(m, "tool_calls", None) or [])]
                     cap = f"⏱ {elapsed:.0f} ms"
                     if tools_used:
-                        cap += f" · 🔧 ferramentas: {', '.join(dict.fromkeys(tools_used))}"
+                        cap += f" · 🔧 {', '.join(dict.fromkeys(tools_used))}"
                     st.caption(cap)
-                    st.session_state.chat_history.append({"role": "assistant", "content": answer})
+                    st.session_state.chat_history.append({"role": "assistant", "content": answer, "caption": cap})
                 except Exception as e:
                     st.error(f"Erro no agent: {e}")
-
-    st.caption(f"Session ID: `{st.session_state.thread_id}`")
