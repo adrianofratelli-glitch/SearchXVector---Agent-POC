@@ -255,15 +255,20 @@ def inject_mongodb_theme():
     }
     [data-testid="stExpander"] summary::-webkit-details-marker { display: none !important; }
     [data-testid="stExpander"] summary:hover { background: var(--bg-hover) !important; color: var(--green) !important; }
-    /* Esconde o ícone nativo (renderiza como texto "arrow_drop_down" sem a font Material) */
+    /* Esconde o ícone nativo (renderiza como texto "arrow_drop_down" sem a Material font) */
     [data-testid="stExpander"] summary [data-testid="stExpanderToggleIcon"],
-    [data-testid="stExpander"] summary svg,
-    [data-testid="stExpander"] summary span[class*="material"],
-    [data-testid="stExpander"] summary span[class*="icon"] { display: none !important; }
+    [data-testid="stExpander"] summary [data-testid="stIconMaterial"],
+    [data-testid="stExpander"] summary [data-testid="stIconMaterialOutlined"],
+    [data-testid="stExpander"] summary [class*="material-symbols"],
+    [data-testid="stExpander"] summary [class*="material-icons"],
+    [data-testid="stExpander"] summary span[class*="icon"],
+    [data-testid="stExpander"] summary svg {
+        display: none !important; width: 0 !important; visibility: hidden !important;
+    }
     /* Seta CSS própria */
     [data-testid="stExpander"] summary::before {
         content: '▸'; color: var(--txt-3); font-size: 13px;
-        margin-right: 8px; font-family: sans-serif !important; display: inline-block;
+        margin-right: 8px; font-family: sans-serif !important; display: inline-block; visibility: visible !important;
     }
     [data-testid="stExpander"] details[open] > summary::before,
     details[open] > summary::before { content: '▾'; }
@@ -311,8 +316,23 @@ def inject_mongodb_theme():
 
 # ── COMPONENTES ────────────────────────────────────────────────────────────────
 
+def mdb_leaf(w: int = 24, h: int = 28):
+    """Logo folha MongoDB de duas tonalidades (light green + evergreen) + caule."""
+    return (
+        f'<svg width="{w}" height="{h}" viewBox="0 0 26 32" fill="none" '
+        f'style="flex-shrink:0;filter:drop-shadow(0 0 6px rgba(0,237,100,0.35));">'
+        # metade clara (esquerda)
+        '<path d="M13 1C13 1 3 11 3 19C3 24.52 7.48 29 13 29L13 1Z" fill="#00ED64"/>'
+        # metade escura (direita) — evergreen
+        '<path d="M13 1C13 1 23 11 23 19C23 24.52 18.52 29 13 29L13 1Z" fill="#00A35C"/>'
+        # caule
+        '<rect x="12" y="28" width="2" height="4" rx="1" fill="#00684A"/>'
+        '</svg>'
+    )
+
+
 def mdb_header(title: str, subtitle: str = "", pills: list = None):
-    """Header MongoDB Atlas com logo SVG, título e pills."""
+    """Header MongoDB Atlas com logo folha, título (Value Serif) e pills."""
     pill_palette = {
         "green":  ("#00ED64", "rgba(0,237,100,0.10)",  "rgba(0,237,100,0.28)"),
         "blue":   ("#0498EC", "rgba(4,152,236,0.10)", "rgba(4,152,236,0.28)"),
@@ -329,20 +349,17 @@ def mdb_header(title: str, subtitle: str = "", pills: list = None):
                 f'text-transform:uppercase;letter-spacing:0.07em;white-space:nowrap;'
                 f'font-family:Euclid Circular A,sans-serif;">{p["label"]}</span>'
             )
-    sub = (f'<p style="margin:5px 0 0;font-size:12px;color:#3D5A6C;'
+    sub = (f'<p style="margin:6px 0 0;font-size:12px;color:#3D5A6C;'
            f'font-family:Source Code Pro,monospace;">{subtitle}</p>') if subtitle else ""
-    logo = ('<svg width="24" height="28" viewBox="0 0 24 32" fill="none">'
-            '<path d="M12 0C12 0 3 9.5 3 17.5C3 22.747 7.029 27 12 27C16.971 27 21 22.747 21 17.5C21 9.5 12 0 12 0Z" fill="#00ED64"/>'
-            '<rect x="11" y="26" width="2" height="6" rx="1" fill="#00ED64"/>'
-            '</svg>')
     st.html(f"""
-    <div style="background:#00141C;border-bottom:1px solid rgba(0,237,100,0.10);
-                padding:14px 4px 12px;margin-bottom:4px;">
-        <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
-            {logo}
-            <span style="font-family:Euclid Circular A,sans-serif;font-size:20px;
-                         font-weight:800;color:#E3FCF7;letter-spacing:-0.025em;">{title}</span>
-            <div style="display:flex;gap:6px;flex-wrap:wrap;">{pills_html}</div>
+    <div style="background:linear-gradient(180deg,#00141C 0%,#001E2B 100%);
+                border-bottom:1px solid rgba(0,237,100,0.12);
+                padding:16px 4px 14px;margin-bottom:6px;">
+        <div style="display:flex;align-items:center;gap:13px;flex-wrap:wrap;">
+            {mdb_leaf(24, 28)}
+            <span style="font-family:'MongoDB Value Serif',Georgia,serif;font-size:23px;
+                         font-weight:700;color:#E3FCF7;letter-spacing:-0.015em;line-height:1;">{title}</span>
+            <div style="display:flex;gap:6px;flex-wrap:wrap;margin-left:2px;">{pills_html}</div>
         </div>
         {sub}
     </div>
@@ -430,21 +447,18 @@ def mdb_sidebar(db_name: str = "POC", online: bool = True,
     label = "Online"  if online else "Offline"
 
     # ── Logo + Brand ──────────────────────────────────────────────────
-    st.html("""
-    <style>@keyframes mdb-dot{0%,100%{opacity:1;transform:scale(1)}50%{opacity:0.5;transform:scale(0.8)}}</style>
+    st.html(f"""
+    <style>@keyframes mdb-dot{{0%,100%{{opacity:1;transform:scale(1)}}50%{{opacity:0.5;transform:scale(0.8)}}}}</style>
     <div style="padding:16px 4px 14px;border-bottom:1px solid rgba(0,237,100,0.10);margin-bottom:12px;">
         <div style="display:flex;align-items:center;gap:10px;">
-            <svg width="26" height="30" viewBox="0 0 26 32" fill="none">
-                <path d="M13 1C13 1 3 11 3 19C3 24.523 7.477 29 13 29C18.523 29 23 24.523 23 19C23 11 13 1 13 1Z" fill="#00ED64"/>
-                <rect x="12" y="28" width="2" height="4" rx="1" fill="#00ED64"/>
-            </svg>
+            {mdb_leaf(26, 30)}
             <div>
-                <div style="font-size:15px;font-weight:800;color:#E3FCF7;
-                            font-family:'Euclid Circular A',sans-serif;letter-spacing:-0.02em;line-height:1.2;">
+                <div style="font-size:16px;font-weight:700;color:#E3FCF7;
+                            font-family:'MongoDB Value Serif',Georgia,serif;letter-spacing:-0.01em;line-height:1.15;">
                     Search × Vector
                 </div>
                 <div style="font-size:9px;color:#3D5A6C;text-transform:uppercase;
-                            letter-spacing:0.15em;font-family:'Source Code Pro',monospace;margin-top:1px;">
+                            letter-spacing:0.15em;font-family:'Source Code Pro',monospace;margin-top:2px;">
                     MongoDB Atlas POC
                 </div>
             </div>

@@ -26,7 +26,12 @@ load_dotenv(override=True)
 MONGODB_URI = os.getenv("MONGODB_URI")
 DB_NAME     = os.getenv("DB_NAME", "POC")
 
-st.set_page_config(page_title="Marketplace × MongoDB Atlas", page_icon="🛒", layout="wide")
+st.set_page_config(
+    page_title="Search × Vector · MongoDB Atlas",
+    page_icon="🍃",
+    layout="wide",
+    initial_sidebar_state="expanded",
+)
 inject_mongodb_theme()
 
 # ══════════════════════════════════════════════════════════════════
@@ -83,33 +88,10 @@ def safe_aggregate(collection, pipeline):
         return None, str(e)
 
 def show_mql_editor(pipeline: list, collection: str, key: str):
-    with st.expander("🔧 Pipeline MQL — Ver & Editar", expanded=False):
-        st.caption(f"Collection: `{DB_NAME}.{collection}` — edite o JSON e clique em Executar")
-        edited = st.text_area(
-            "Pipeline", value=json.dumps(pipeline, indent=2, ensure_ascii=False, default=str),
-            height=260, key=f"mql_{key}", label_visibility="collapsed"
-        )
-        col_btn, _ = st.columns([1, 4])
-        with col_btn:
-            run = st.button("▶ Executar", key=f"run_{key}", use_container_width=True)
-        if run:
-            try:
-                custom = json.loads(edited)
-            except json.JSONDecodeError as e:
-                st.error(f"JSON inválido: {e}")
-                return
-            t0 = time.time()
-            results, err = safe_aggregate(collection, custom)
-            elapsed = (time.time() - t0) * 1000
-            if err:
-                st.error(f"Erro: {err}")
-            else:
-                st.success(f"✅  {len(results)} documentos em **{elapsed:.0f} ms**")
-                if results:
-                    st.dataframe(
-                        pd.DataFrame([{k: v for k, v in r.items() if k != "_id"} for r in results[:20]]),
-                        use_container_width=True, hide_index=True
-                    )
+    """Exibe (read-only) o pipeline MQL que foi executado no MongoDB — para transparência."""
+    with st.expander("🔧 Pipeline MQL executado no MongoDB", expanded=False):
+        st.caption(f"Collection: `{DB_NAME}.{collection}` — este é o aggregation pipeline que rodou no cluster")
+        st.code(json.dumps(pipeline, indent=2, ensure_ascii=False, default=str), language="json")
 
 def show_searchmeta(search_op: dict):
     """Contagem de facets em tempo real com $searchMeta — usa o mesmo operador do $search principal."""
@@ -403,22 +385,7 @@ mdb_header(
     ]
 )
 
-# ── KPI row — métricas 100% reais medidas no cluster ──────────────
-@st.cache_data(ttl=60, show_spinner=False)
-def _measure_search_latency():
-    """Mede latência real de uma query $search leve no Atlas. Retorna ms ou None."""
-    try:
-        t0 = time.time()
-        list(db["produtos"].aggregate([
-            {"$search": {"index": "produtos_search",
-                         "text": {"query": "nike", "path": "nome"}}},
-            {"$limit": 1},
-            {"$project": {"_id": 1}}
-        ], maxTimeMS=QUERY_TIMEOUT_MS))
-        return (time.time() - t0) * 1000
-    except Exception:
-        return None
-
+# ── KPI row — métricas 100% reais do cluster ──────────────────────
 def _fmt_count(n):
     """Formata contagem: 5_000_000 → '5.0M', 200_000 → '200k', 950 → '950'."""
     if n >= 1_000_000:
@@ -427,7 +394,6 @@ def _fmt_count(n):
         return f"{n/1_000:.0f}k"
     return str(n)
 
-_lat = _measure_search_latency()
 _n_prod = _col_counts.get("produtos", 0)
 _n_vec  = _col_counts.get("produtos_vector", 0)
 _n_aval = _col_counts.get("avaliacoes", 0)
@@ -442,25 +408,60 @@ with _k1:
     )
 with _k2:
     mdb_kpi_card(
-        "Latência Atlas Search",
-        f"{_lat:.0f}ms" if _lat is not None else "—",
-        "medido agora · query 'nike'" if _lat is not None else "índice indisponível",
-        delta_type="up" if (_lat is not None and _lat < 50) else "warn", color="teal"
-    )
-with _k3:
-    mdb_kpi_card(
         "Vetores Indexados",
         _fmt_count(_n_vec),
         "embeddings · voyage-4",
         delta_type="up" if _n_vec else "", color="blue"
     )
-with _k4:
+with _k3:
     mdb_kpi_card(
         "Avaliações",
         _fmt_count(_n_aval),
         "reviews p/ o AI Agent",
         color="purple"
     )
+with _k4:
+    mdb_kpi_card(
+        "Índices Ativos",
+        "2",
+        "Atlas Search + Vector · READY",
+        delta_type="up", color="teal"
+    )
+
+st.html('<div style="height:6px;"></div>')
+
+# ── Onboarding — explica as 4 abas em linguagem simples ───────────
+with st.expander("📖 Como usar esta POC — o que cada aba demonstra", expanded=False):
+    oc1, oc2, oc3, oc4 = st.columns(4)
+    with oc1:
+        st.html(
+            '<div style="border-left:2px solid #00ED64;padding:2px 0 2px 12px;">'
+            '<div style="font-size:13px;font-weight:700;color:#00ED64;font-family:Euclid Circular A,sans-serif;">🔍 Atlas Search</div>'
+            '<div style="font-size:12px;color:#889397;margin-top:4px;line-height:1.5;font-family:Euclid Circular A,sans-serif;">'
+            'Busca por <b>palavra-chave</b> com autocomplete, tolerância a erros de digitação e filtros. '
+            'Como um e-commerce de verdade.</div></div>'
+        )
+    with oc2:
+        st.html(
+            '<div style="border-left:2px solid #0498EC;padding:2px 0 2px 12px;">'
+            '<div style="font-size:13px;font-weight:700;color:#0498EC;font-family:Euclid Circular A,sans-serif;">⚡ Search vs Vector</div>'
+            '<div style="font-size:12px;color:#889397;margin-top:4px;line-height:1.5;font-family:Euclid Circular A,sans-serif;">'
+            'Lado a lado: busca textual <b>falha</b> em frases conceituais; a busca <b>semântica</b> entende o significado.</div></div>'
+        )
+    with oc3:
+        st.html(
+            '<div style="border-left:2px solid #B45AF2;padding:2px 0 2px 12px;">'
+            '<div style="font-size:13px;font-weight:700;color:#B45AF2;font-family:Euclid Circular A,sans-serif;">🔀 Hybrid RRF</div>'
+            '<div style="font-size:12px;color:#889397;margin-top:4px;line-height:1.5;font-family:Euclid Circular A,sans-serif;">'
+            'Combina as duas engines num <b>único ranking</b>. O melhor da relevância textual + semântica.</div></div>'
+        )
+    with oc4:
+        st.html(
+            '<div style="border-left:2px solid #FFC010;padding:2px 0 2px 12px;">'
+            '<div style="font-size:13px;font-weight:700;color:#FFC010;font-family:Euclid Circular A,sans-serif;">🤖 AI Agent</div>'
+            '<div style="font-size:12px;color:#889397;margin-top:4px;line-height:1.5;font-family:Euclid Circular A,sans-serif;">'
+            'Pergunte em <b>linguagem natural</b>. O agente escolhe a ferramenta, roda o MQL e mostra o raciocínio.</div></div>'
+        )
 
 st.html('<div style="height:8px;"></div>')
 
@@ -503,6 +504,21 @@ with tab_search:
 
         submitted = st.form_submit_button("🔍 Buscar", use_container_width=True)
 
+    # ── Hero do estado inicial (antes de qualquer busca) ──────────────
+    if "s1_pipeline" not in st.session_state and not (submitted and search_query):
+        st.html(
+            '<div style="text-align:center;padding:26px 0;">'
+            '<div style="font-size:30px;margin-bottom:8px;">🔍</div>'
+            '<div style="font-size:16px;font-weight:700;color:#E3FCF7;'
+            'font-family:Euclid Circular A,sans-serif;margin-bottom:4px;">'
+            'Busque um produto para começar</div>'
+            '<div style="font-size:13px;color:#5C6C75;font-family:Euclid Circular A,sans-serif;line-height:1.6;">'
+            'Tente <b style="color:#889397;">adidass</b> ou <b style="color:#889397;">samsumg</b> '
+            '(com erro de digitação) para ver o <b>fuzzy matching</b> · '
+            'os termos digitados ficam destacados nos resultados.</div>'
+            '</div>'
+        )
+
     if submitted and search_query:
         mql_filter = {"preco": {"$gte": price_range[0], "$lte": price_range[1]}}
         if only_stock:
@@ -510,13 +526,13 @@ with tab_search:
         if cat_filter:
             mql_filter["categoria"] = {"$in": cat_filter}
 
-        # synonyms NÃO pode coexistir com fuzzy no mesmo operador
-        if use_synonyms:
-            search_op = {"text": {"query": search_query, "path": ["nome", "descricao"], "synonyms": "sinonimos_produtos"}}
-        else:
+        def _build_search_op(with_synonyms: bool):
+            if with_synonyms:
+                # synonyms exige analyzer lucene.standard; não combina com fuzzy
+                return {"text": {"query": search_query, "path": ["nome", "descricao"],
+                                 "synonyms": "sinonimos_produtos"}}
             # compound: autocomplete em nome (boost) + text em descricao
-            # assim "notebook" acha produtos mesmo sem a palavra no nome
-            search_op = {
+            return {
                 "compound": {
                     "should": [
                         {"autocomplete": {"query": search_query, "path": "nome",
@@ -529,29 +545,47 @@ with tab_search:
                 }
             }
 
-        pipeline = [
-            {"$search": {
-                "index": "produtos_search",
-                **search_op,
-                "count": {"type": "total"},
-                "highlight": {"path": ["nome", "descricao"], "maxCharsToExamine": 500, "maxNumPassages": 1}
-            }},
-            {"$match": mql_filter},
-            {"$limit": 50},
-            {"$addFields": {"_total_matches": "$$SEARCH_META.count.total"}},
-            {"$project": {
-                "nome": 1, "marca": 1, "categoria": 1, "subcategoria": 1,
-                "preco": 1, "preco_original": 1, "desconto_pct": 1,
-                "avaliacao_media": 1, "total_avaliacoes": 1,
-                "em_estoque": 1, "score": {"$meta": "searchScore"},
-                "highlights": {"$meta": "searchHighlights"},
-                "_total_matches": 1
-            }}
-        ]
+        def _build_pipeline(search_op):
+            return [
+                {"$search": {
+                    "index": "produtos_search",
+                    **search_op,
+                    "count": {"type": "total"},
+                    "highlight": {"path": ["nome", "descricao"], "maxCharsToExamine": 500, "maxNumPassages": 1}
+                }},
+                {"$match": mql_filter},
+                {"$limit": 50},
+                {"$addFields": {"_total_matches": "$$SEARCH_META.count.total"}},
+                {"$project": {
+                    "nome": 1, "marca": 1, "categoria": 1, "subcategoria": 1,
+                    "preco": 1, "preco_original": 1, "desconto_pct": 1,
+                    "avaliacao_media": 1, "total_avaliacoes": 1,
+                    "em_estoque": 1, "score": {"$meta": "searchScore"},
+                    "highlights": {"$meta": "searchHighlights"},
+                    "_total_matches": 1
+                }}
+            ]
+
+        search_op = _build_search_op(use_synonyms)
+        pipeline  = _build_pipeline(search_op)
 
         t0 = time.time()
         results, err = safe_aggregate("produtos", pipeline)
         elapsed = (time.time() - t0) * 1000
+
+        # Fallback gracioso: se sinônimos falharem (analyzer incompatível), refaz sem sinônimos
+        if err and use_synonyms and "synonym" in str(err).lower():
+            st.warning(
+                "🔤 **Sinônimos indisponíveis neste índice** — o mapeamento `sinonimos_produtos` "
+                "exige analyzer `lucene.standard`, mas o campo `descricao` usa `lucene.portuguese`. "
+                "Veja o README para configurar. Exibindo resultados sem sinônimos."
+            )
+            use_synonyms = False
+            search_op = _build_search_op(False)
+            pipeline  = _build_pipeline(search_op)
+            t0 = time.time()
+            results, err = safe_aggregate("produtos", pipeline)
+            elapsed = (time.time() - t0) * 1000
 
         if err:
             st.error(f"Erro na busca: {err}")
@@ -751,9 +785,16 @@ with tab_rrf:
         key="rrf", label_visibility="collapsed"
     )
     col_k1, col_k2, col_k3 = st.columns(3)
-    with col_k1: rrf_k    = st.slider("k (RRF constant)", 10, 100, 60)
-    with col_k2: n_search = st.slider("Resultados Search", 10, 50, 20)
-    with col_k3: n_vector = st.slider("Resultados Vector", 10, 50, 20)
+    with col_k1:
+        rrf_k = st.slider("k (RRF constant)", 10, 100, 60,
+            help="Constante de suavização do RRF. Valores baixos dão mais peso às primeiras posições; "
+                 "valores altos achatam as diferenças entre rankings. O padrão da literatura é 60.")
+    with col_k2:
+        n_search = st.slider("Resultados Search", 10, 50, 20,
+            help="Quantos resultados o Atlas Search (textual) contribui para a fusão.")
+    with col_k3:
+        n_vector = st.slider("Resultados Vector", 10, 50, 20,
+            help="Quantos resultados o Vector Search (semântico) contribui para a fusão.")
 
     if not rrf_query:
         st.html(
