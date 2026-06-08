@@ -18,7 +18,15 @@ Interface da POC construída com **React 18 + Vite** e os componentes oficiais d
 - Node 18+ (testado em Node 18–26)
 - Backend rodando (ver `../backend/README.md`)
 
-## Setup
+## Atalho (sobe backend + frontend juntos)
+
+Na raiz do projeto:
+
+```bash
+bash start.sh        # sobe FastAPI :8000 + Vite :5173 e valida ambos
+```
+
+## Setup manual (só frontend)
 
 ```bash
 npm install
