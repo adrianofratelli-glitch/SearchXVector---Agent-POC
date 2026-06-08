@@ -11,7 +11,7 @@ from langgraph.checkpoint.mongodb import MongoDBSaver
 
 from atlas import db, safe_aggregate, _client, DB_NAME
 
-llm = ChatAnthropic(model="claude-haiku-4-5-20251001", temperature=0)
+llm = ChatAnthropic(model="claude-sonnet-4-6", temperature=0)
 
 
 # ── Ferramentas ──────────────────────────────────────────────────────────────

@@ -50,16 +50,197 @@ def get_stats() -> dict:
     return out
 
 
+# ── Analytics — Aggregation Framework ($facet) ───────────────────────────────
+def get_analytics() -> dict:
+    """Um único $facet roda vários agregados em paralelo no servidor."""
+    pipeline = [
+        {"$facet": {
+            "por_categoria": [
+                {"$group": {"_id": "$categoria", "total": {"$sum": 1},
+                            "preco_medio": {"$avg": "$preco"},
+                            "avaliacao_media": {"$avg": "$avaliacao_media"}}},
+                {"$sort": {"total": -1}},
+            ],
+            "top_marcas": [
+                {"$group": {"_id": "$marca", "total": {"$sum": 1}}},
+                {"$sort": {"total": -1}}, {"$limit": 8},
+            ],
+            "faixa_preco": [
+                {"$bucket": {
+                    "groupBy": "$preco",
+                    "boundaries": [0, 100, 500, 1000, 3000, 5000, 10000, 999999],
+                    "default": "outros",
+                    "output": {"total": {"$sum": 1}},
+                }},
+            ],
+            "por_mes": [
+                {"$match": {"created_at": {"$type": "date"}}},
+                {"$group": {"_id": {"$dateToString": {"format": "%Y-%m", "date": "$created_at"}},
+                            "total": {"$sum": 1}}},
+                {"$sort": {"_id": 1}}, {"$limit": 12},
+            ],
+            "geral": [
+                {"$group": {"_id": None,
+                            "total": {"$sum": 1},
+                            "preco_medio": {"$avg": "$preco"},
+                            "desconto_medio": {"$avg": "$desconto_pct"},
+                            "em_estoque": {"$sum": {"$cond": ["$em_estoque", 1, 0]}}}},
+            ],
+        }},
+    ]
+    # roda sobre uma amostra representativa (5M docs no full scan seria lento)
+    sample_pipeline = [{"$sample": {"size": 12000}}] + pipeline
+    t0 = time.time()
+    try:
+        res = list(db["produtos"].aggregate(sample_pipeline, maxTimeMS=25000))
+    except Exception as e:
+        return {"error": str(e)}
+    elapsed = (time.time() - t0) * 1000
+    data = res[0] if res else {}
+    geral = (data.get("geral") or [{}])[0]
+    faixa_labels = ["R$ 0–100", "R$ 100–500", "R$ 500–1K", "R$ 1K–3K", "R$ 3K–5K", "R$ 5K–10K", "R$ 10K+"]
+    faixa = data.get("faixa_preco", [])
+    return {
+        "por_categoria": data.get("por_categoria", []),
+        "top_marcas": data.get("top_marcas", []),
+        "faixa_preco": [{"label": faixa_labels[i] if i < len(faixa_labels) else str(b.get("_id")),
+                         "total": b.get("total", 0)} for i, b in enumerate(faixa)],
+        "por_mes": data.get("por_mes", []),
+        "geral": {
+            "preco_medio": round(geral.get("preco_medio", 0), 2),
+            "desconto_medio": round(geral.get("desconto_medio", 0), 1),
+            "em_estoque_pct": round(100 * geral.get("em_estoque", 0) / max(geral.get("total", 1), 1), 1),
+            "amostra": geral.get("total", 0),
+        },
+        "elapsed_ms": round(elapsed),
+        "pipeline": pipeline,
+    }
+
+
+# ── Recomendações — Vector "more like this" com PRE-FILTERING ─────────────────
+def find_similar(produto_id: str = None, nome: str = None, same_category: bool = True) -> dict:
+    """Produtos semanticamente similares (autoEmbed). Demonstra VECTOR PRE-FILTERING:
+    o filtro (categoria / em_estoque) roda DENTRO do $vectorSearch — semântico +
+    estruturado numa única operação, sem pós-filtro na aplicação."""
+    # Acha o produto base via Atlas Search (indexado) — NÃO via $match em campo
+    # sem índice (que causaria collscan em 5M docs e timeout).
+    if produto_id:
+        base, err = safe_aggregate("produtos", [
+            {"$match": {"produto_id": produto_id}}, {"$limit": 1},
+            {"$project": {"_id": 0, "nome": 1, "descricao": 1, "categoria": 1, "preco": 1, "produto_id": 1}},
+        ])
+    else:
+        base, err = safe_aggregate("produtos", [
+            {"$search": {"index": "produtos_search",
+                         "autocomplete": {"query": nome, "path": "nome", "fuzzy": {"maxEdits": 1}}}},
+            {"$limit": 1},
+            {"$project": {"_id": 0, "nome": 1, "descricao": 1, "categoria": 1, "preco": 1, "produto_id": 1}},
+        ])
+    if err or not base:
+        return {"error": err or "Produto não encontrado", "base": None, "similares": []}
+    b = base[0]
+
+    # Vector search pelo significado da descrição do produto base.
+    # PRE-FILTERING NATIVO: o filtro (categoria + em_estoque) roda DENTRO do
+    # $vectorSearch — o índice indexa esses campos como `filter`. Semântico +
+    # estruturado numa única operação, sem pós-filtro na aplicação.
+    vector_stage = {"$vectorSearch": {
+        "index": "produtos_vector", "path": "descricao",
+        "query": b.get("descricao", b["nome"]),
+        "numCandidates": 200, "limit": 9,
+    }}
+    if same_category:
+        vector_stage["$vectorSearch"]["filter"] = {
+            "categoria": b.get("categoria"), "em_estoque": True,
+        }
+
+    sim, err2 = safe_aggregate("produtos_vector", [
+        vector_stage,
+        {"$project": {"_id": 0, "nome": 1, "marca": 1, "categoria": 1, "preco": 1,
+                      "avaliacao_media": 1, "produto_id": 1, "score": {"$meta": "vectorSearchScore"}}},
+    ])
+    if err2:
+        return {"error": err2, "base": b, "similares": []}
+
+    similares = [s for s in (sim or []) if s.get("nome") != b["nome"]][:8]
+    return {"base": b, "similares": similares, "filtered": same_category}
+
+
+# ── Reviews de um produto (p/ RAG) ───────────────────────────────────────────
+# Apenas ~100 produtos têm avaliações. Cacheamos o catálogo desses produtos
+# (id + nome + categoria) uma vez, e a busca de reviews escolhe sempre um
+# produto QUE TEM reviews — garante que a demo nunca cai em "0 avaliações".
+_reviewed_catalog = None
+
+def _get_reviewed_catalog():
+    global _reviewed_catalog
+    if _reviewed_catalog is None:
+        try:
+            # distinct usa o índice em produto_id → ~0.2s (vs $group que faz scan)
+            id_list = db["avaliacoes"].distinct("produto_id")
+        except Exception:
+            id_list = []
+        prods, _ = safe_aggregate("produtos", [
+            {"$match": {"produto_id": {"$in": id_list}}},
+            {"$project": {"_id": 0, "produto_id": 1, "nome": 1, "marca": 1,
+                          "categoria": 1, "preco": 1, "avaliacao_media": 1, "total_avaliacoes": 1}},
+        ])
+        _reviewed_catalog = prods or []
+    return _reviewed_catalog
+
+
+def get_product_and_reviews(query: str, n_reviews: int = 8) -> dict:
+    """Acha o produto mais relevante QUE TEM reviews e puxa as avaliações (top por utilidade)."""
+    catalog = _get_reviewed_catalog()
+    if not catalog:
+        return {"error": "Nenhum produto com avaliações", "produto": None, "reviews": []}
+
+    # match por relevância textual simples dentro do catálogo avaliado (case-insensitive,
+    # por tokens do nome/marca/categoria) — garante que o produto escolhido tem reviews
+    q = query.lower().strip()
+    tokens = [t for t in q.split() if len(t) > 2]
+    def score(p):
+        blob = f"{p.get('nome','')} {p.get('marca','')} {p.get('categoria','')}".lower()
+        s = sum(1 for t in tokens if t in blob)
+        if q in blob:
+            s += 3
+        return s
+    ranked = sorted(catalog, key=score, reverse=True)
+    produto = ranked[0] if score(ranked[0]) > 0 else max(catalog, key=lambda p: int(p.get("total_avaliacoes", 0) or 0))
+
+    reviews, _ = safe_aggregate("avaliacoes", [
+        {"$match": {"produto_id": produto["produto_id"]}},
+        {"$sort": {"util_count": -1}},
+        {"$limit": n_reviews},
+        {"$project": {"_id": 0, "nota": 1, "titulo": 1, "texto": 1, "util_count": 1,
+                      "verificado": 1, "usuario": 1}},
+    ])
+    return {"produto": produto, "reviews": reviews or []}
+
+
 # ── Atlas Search (Tab 1) ─────────────────────────────────────────────────────
-def build_search_op(query: str, with_synonyms: bool = False) -> dict:
+# Score por SINAIS DE NEGÓCIO: multiplica a relevância textual pela nota do
+# produto (avaliacao_media). Produtos bem avaliados sobem no ranking — tuning de
+# relevância de e-commerce controlado por regra de negócio, não só por texto.
+def _business_score() -> dict:
+    return {"function": {
+        "multiply": [
+            {"score": "relevance"},
+            {"path": {"value": "avaliacao_media", "undefined": 3.0}},
+        ]
+    }}
+
+
+def build_search_op(query: str, with_synonyms: bool = False, boost_business: bool = True) -> dict:
     if with_synonyms:
         return {"text": {"query": query, "path": ["nome", "descricao"],
                          "synonyms": "sinonimos_produtos"}}
+    nome_score = _business_score() if boost_business else {"boost": {"value": 2}}
     return {
         "compound": {
             "should": [
                 {"autocomplete": {"query": query, "path": "nome",
-                                  "fuzzy": {"maxEdits": 1}, "score": {"boost": {"value": 2}}}},
+                                  "fuzzy": {"maxEdits": 1}, "score": nome_score}},
                 {"text": {"query": query, "path": "descricao", "fuzzy": {"maxEdits": 1}}},
             ],
             "minimumShouldMatch": 1,
@@ -74,6 +255,7 @@ def build_search_pipeline(search_op: dict, mql_filter: dict) -> list:
             **search_op,
             "count": {"type": "total"},
             "highlight": {"path": ["nome", "descricao"], "maxCharsToExamine": 500, "maxNumPassages": 1},
+            "scoreDetails": True,   # transparência: POR QUE este produto rankeou aqui
         }},
         {"$match": mql_filter},
         {"$limit": 50},
@@ -85,6 +267,7 @@ def build_search_pipeline(search_op: dict, mql_filter: dict) -> list:
             "avaliacao_media": 1, "total_avaliacoes": 1,
             "em_estoque": 1, "score": {"$meta": "searchScore"},
             "highlights": {"$meta": "searchHighlights"},
+            "scoreDetails": {"$meta": "searchScoreDetails"},
             "_total_matches": 1,
         }},
     ]
@@ -264,4 +447,48 @@ def hybrid_rrf(query: str, k=60, n_search=20, n_vector=20) -> dict:
                    "n_search": len(search_res), "n_vector": len(vector_res)},
         "elapsed_ms": round(elapsed),
         "k": k,
+    }
+
+
+# ── Hybrid via $rankFusion NATIVO (MongoDB 8.1+) — com fallback gracioso ──────
+def hybrid_native(query: str, limit: int = 20) -> dict:
+    """Faz hybrid search com o stage NATIVO $rankFusion (server-side, sem RRF na
+    aplicação). Requer MongoDB 8.1+. Em 8.0 cai no fallback Python e sinaliza isso."""
+    pipeline = [
+        {"$rankFusion": {
+            "input": {"pipelines": {
+                "textual": [
+                    {"$search": {"index": "produtos_search", "compound": {"should": [
+                        {"autocomplete": {"query": query, "path": "nome", "fuzzy": {"maxEdits": 1}}},
+                        {"text": {"query": query, "path": "descricao", "fuzzy": {"maxEdits": 1}}},
+                    ]}}},
+                    {"$limit": limit},
+                ],
+                "semantico": [
+                    {"$vectorSearch": {"index": "produtos_vector", "path": "descricao",
+                                       "query": query, "numCandidates": limit * 10, "limit": limit}},
+                ],
+            }},
+            "combination": {"weights": {"textual": 1, "semantico": 1}},
+        }},
+        {"$limit": limit},
+        {"$project": {"_id": 0, "nome": 1, "categoria": 1, "preco": 1,
+                      "scoreDetails": {"$meta": "scoreDetails"}}},
+    ]
+    t0 = time.time()
+    results, err = safe_aggregate("produtos", pipeline)
+    elapsed = (time.time() - t0) * 1000
+
+    if err:
+        # 8.0 não tem $rankFusion → usa o RRF manual e sinaliza fallback
+        fb = hybrid_rrf(query, k=60, n_search=limit, n_vector=limit)
+        return {
+            "native": False,
+            "reason": "$rankFusion requer MongoDB 8.1+ (cluster atual: 8.0) — usando RRF na aplicação.",
+            "fused": fb.get("fused", []), "counts": fb.get("counts", {}),
+            "elapsed_ms": fb.get("elapsed_ms", 0), "pipeline": pipeline,
+        }
+    return {
+        "native": True,
+        "results": results or [], "elapsed_ms": round(elapsed), "pipeline": pipeline,
     }

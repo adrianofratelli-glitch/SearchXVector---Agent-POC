@@ -6,10 +6,13 @@ const NAV = [
   { section: "BUSCA", items: [
     { icon: "🔍", label: "Atlas Search", tab: 0 },
     { icon: "⚡", label: "Search vs Vector", tab: 1 },
-  ]},
-  { section: "HYBRID & AI", items: [
     { icon: "🔀", label: "Hybrid RRF", tab: 2 },
-    { icon: "🤖", label: "AI Agent", tab: 3 },
+    { icon: "🎯", label: "Similares", tab: 3 },
+  ]},
+  { section: "ANALYTICS & AI", items: [
+    { icon: "📊", label: "Analytics", tab: 4 },
+    { icon: "💬", label: "Reviews RAG", tab: 5 },
+    { icon: "🤖", label: "AI Agent", tab: 6 },
   ]},
 ];
 

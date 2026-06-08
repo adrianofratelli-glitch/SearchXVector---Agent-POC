@@ -10,12 +10,16 @@ import AtlasSearch from "./tabs/AtlasSearch";
 import SearchVsVector from "./tabs/SearchVsVector";
 import HybridRRF from "./tabs/HybridRRF";
 import AiAgent from "./tabs/AiAgent";
+import Analytics from "./tabs/Analytics";
+import Similares from "./tabs/Similares";
+import ReviewsRag from "./tabs/ReviewsRag";
 
 const PILLS = [
   { label: "Atlas Search", color: T.green },
   { label: "Vector Search", color: T.blue },
   { label: "Hybrid RRF", color: T.purple },
-  { label: "AI Agent", color: T.yellow },
+  { label: "Aggregation", color: T.teal },
+  { label: "RAG", color: T.yellow },
 ];
 
 export default function App() {
@@ -76,6 +80,9 @@ export default function App() {
             <Tab name="🔍 Atlas Search"><div style={{ paddingTop: 18 }}><AtlasSearch /></div></Tab>
             <Tab name="⚡ Search vs Vector"><div style={{ paddingTop: 18 }}><SearchVsVector /></div></Tab>
             <Tab name="🔀 Hybrid RRF"><div style={{ paddingTop: 18 }}><HybridRRF /></div></Tab>
+            <Tab name="🎯 Similares"><div style={{ paddingTop: 18 }}><Similares /></div></Tab>
+            <Tab name="📊 Analytics"><div style={{ paddingTop: 18 }}><Analytics /></div></Tab>
+            <Tab name="💬 Reviews RAG"><div style={{ paddingTop: 18 }}><ReviewsRag /></div></Tab>
             <Tab name="🤖 AI Agent"><div style={{ paddingTop: 18 }}><AiAgent /></div></Tab>
           </Tabs>
         </div>

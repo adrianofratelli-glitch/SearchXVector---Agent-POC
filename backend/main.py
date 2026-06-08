@@ -20,6 +20,7 @@ from pydantic import BaseModel
 
 import atlas
 from agent import run_agent
+from reviews import summarize_reviews
 
 app = FastAPI(title="Search × Vector POC API", version="1.0")
 
@@ -54,6 +55,13 @@ class HybridReq(BaseModel):
 class AgentReq(BaseModel):
     message: str
     thread_id: str | None = None
+
+class SimilarReq(BaseModel):
+    produto_id: str | None = None
+    nome: str | None = None
+
+class ReviewsReq(BaseModel):
+    query: str
 
 
 # ── Rotas ────────────────────────────────────────────────────────────────────
@@ -91,9 +99,26 @@ def compare(req: CompareReq):
 def hybrid(req: HybridReq):
     return atlas.hybrid_rrf(req.query, k=req.k, n_search=req.n_search, n_vector=req.n_vector)
 
+@app.post("/hybrid-native")
+def hybrid_native(req: CompareReq):
+    """Hybrid search com o stage NATIVO $rankFusion (8.1+), fallback p/ RRF em 8.0."""
+    return atlas.hybrid_native(req.query)
+
 @app.post("/agent")
 def agent_route(req: AgentReq):
     thread_id = req.thread_id or str(uuid.uuid4())
     out = run_agent(req.message, thread_id)
     out["thread_id"] = thread_id
     return out
+
+@app.get("/analytics")
+def analytics():
+    return atlas.get_analytics()
+
+@app.post("/similar")
+def similar(req: SimilarReq):
+    return atlas.find_similar(produto_id=req.produto_id, nome=req.nome)
+
+@app.post("/reviews-rag")
+def reviews_rag(req: ReviewsReq):
+    return summarize_reviews(req.query)
