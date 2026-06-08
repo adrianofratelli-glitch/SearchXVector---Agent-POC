@@ -13,9 +13,15 @@ Demonstrar como o **MongoDB Atlas** serve como backend completo para aplicaçõe
 
 ## 🏗️ Arquitetura
 
+```
+React + LeafyGreen  ──axios──►  FastAPI  ──►  MongoDB Atlas
+  (frontend/ :5173)             (backend/ :8000)   (POC)
+```
+
 | Camada | Tecnologia |
 |---|---|
-| UI | Streamlit |
+| UI | React 18 + Vite + **LeafyGreen** (design system oficial MongoDB) |
+| API | FastAPI (`backend/`) |
 | AI Agent | LangGraph — ReAct pattern |
 | LLM | Claude Haiku 4.5 (Anthropic) |
 | Embedding | VoyageAI voyage-4 via **autoEmbed** |
@@ -96,17 +102,11 @@ POC (database)
 ### Pré-requisitos
 - MongoDB Atlas cluster 8.0+
 - Conta Anthropic (Claude Haiku)
-- Python 3.11+
-
-### Instalação
-
-```bash
-pip install -r requirements.txt
-```
+- Python 3.11+ · Node 18+
 
 ### Variáveis de ambiente
 
-Crie um arquivo `.env`:
+Crie um arquivo `.env` na raiz:
 
 ```env
 MONGODB_URI=mongodb+srv://<user>:<password>@<cluster>.mongodb.net/
@@ -114,18 +114,25 @@ DB_NAME=POC
 ANTHROPIC_API_KEY=sk-ant-...
 ```
 
-### Executar localmente
+### Executar (atalho — sobe backend + frontend)
 
 ```bash
-streamlit run app_marketplace.py
+bash start.sh
 ```
 
-### Executar em EC2
+Depois abra **http://localhost:5173**.
+
+### Executar manualmente (2 terminais)
 
 ```bash
-bash setup.sh   # primeira vez
-bash start.sh   # sempre que religar
+# Terminal 1 — backend
+cd backend && pip install -r requirements.txt && uvicorn main:app --port 8000
+
+# Terminal 2 — frontend
+cd frontend && npm install && npm run dev
 ```
+
+Detalhes em [`frontend/README.md`](frontend/README.md) e [`backend/README.md`](backend/README.md).
 
 ---
 
@@ -159,11 +166,15 @@ O toggle **Sinônimos** na Tab 1 usa um mapeamento chamado `sinonimos_produtos` 
 
 ```
 .
-├── app_marketplace.py     # App principal — Streamlit + LangGraph
+├── frontend/              # React 18 + Vite + LeafyGreen (UI)
+│   ├── src/tabs/          # Atlas Search · Search vs Vector · Hybrid RRF · AI Agent
+│   └── src/components/    # Sidebar, KpiCard, ProductTable, Leaf
+├── backend/              # FastAPI
+│   ├── atlas.py           # pipelines (search, vector, RRF, facets)
+│   ├── agent.py           # agente LangGraph ReAct + trace MQL
+│   └── main.py            # rotas REST + CORS
 ├── populate_marketplace.py # Popula 20M docs sintéticos
-├── requirements.txt
-├── setup.sh               # Bootstrap EC2
-├── start.sh               # Start/restart app
+├── start.sh               # Atalho: sobe backend + frontend
 └── README.md
 ```
 

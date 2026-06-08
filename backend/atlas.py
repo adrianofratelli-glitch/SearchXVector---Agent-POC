@@ -1,7 +1,7 @@
 """
 atlas.py — Camada de acesso ao MongoDB Atlas.
-Reaproveita os mesmos pipelines do app_marketplace.py (Streamlit),
-agora expostos como funções puras para a API FastAPI.
+Pipelines de Atlas Search, Vector Search, Hybrid RRF e facets,
+expostos como funções puras para a API FastAPI.
 """
 
 import os

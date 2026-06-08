@@ -1,7 +1,6 @@
 """
 agent.py — Agente LangGraph ReAct com 4 ferramentas MongoDB.
-Reaproveita as mesmas tools do app_marketplace.py, expondo o trace
-(tool → MQL → resultado) para o frontend renderizar.
+Expõe o trace (tool → MQL → resultado) para o frontend renderizar.
 """
 
 import os
