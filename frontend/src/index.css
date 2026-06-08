@@ -1,0 +1,45 @@
+/* Fontes proprietárias MongoDB */
+@font-face {
+  font-family: "Euclid Circular A";
+  src: url("https://d2va9gm4j17fy9.cloudfront.net/fonts/euclid-circular/EuclidCircularA-Regular-WebXL.woff2") format("woff2");
+  font-weight: 400; font-display: swap;
+}
+@font-face {
+  font-family: "Euclid Circular A";
+  src: url("https://d2va9gm4j17fy9.cloudfront.net/fonts/euclid-circular/EuclidCircularA-Medium-WebXL.woff2") format("woff2");
+  font-weight: 500; font-display: swap;
+}
+@font-face {
+  font-family: "Euclid Circular A";
+  src: url("https://d2va9gm4j17fy9.cloudfront.net/fonts/euclid-circular/EuclidCircularA-Semibold-WebXL.woff2") format("woff2");
+  font-weight: 600; font-display: swap;
+}
+@font-face {
+  font-family: "Euclid Circular A";
+  src: url("https://d2va9gm4j17fy9.cloudfront.net/fonts/euclid-circular/EuclidCircularA-Bold-WebXL.woff2") format("woff2");
+  font-weight: 700; font-display: swap;
+}
+@font-face {
+  font-family: "MongoDB Value Serif";
+  src: url("https://d2va9gm4j17fy9.cloudfront.net/fonts/value-serif/MongoDBValueSerif-Bold.woff2") format("woff2");
+  font-weight: 700; font-display: swap;
+}
+@import url("https://fonts.googleapis.com/css2?family=Source+Code+Pro:wght@400;500;600&display=swap");
+
+* { box-sizing: border-box; }
+
+html, body, #root {
+  margin: 0;
+  padding: 0;
+  min-height: 100%;
+  background-color: #001E2B;
+  font-family: "Euclid Circular A", "Helvetica Neue", Arial, sans-serif;
+  color: #E3FCF7;
+}
+
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(0,237,100,0.2); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(0,237,100,0.35); }
+
+code, pre { font-family: "Source Code Pro", monospace; }

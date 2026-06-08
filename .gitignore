@@ -20,3 +20,13 @@ Thumbs.db
 # Logs
 *.log
 nohup.out
+
+# Node / Frontend
+node_modules/
+frontend/dist/
+frontend/node_modules/
+**/.vite/
+frontend/.env
+
+# Preview
+**/.claude/launch.json
