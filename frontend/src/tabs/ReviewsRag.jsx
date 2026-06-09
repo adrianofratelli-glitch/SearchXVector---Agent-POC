@@ -6,7 +6,7 @@ import Banner from "@leafygreen-ui/banner";
 import { H3, Body, Subtitle } from "@leafygreen-ui/typography";
 import ReactMarkdown from "react-markdown";
 import { reviewsRag } from "../api";
-import { T, fmtBRL } from "../theme";
+import { T } from "../theme";
 
 const SUGESTOES = ["ASUS ZenBook", "Royal Canin", "Garmin Fenix", "Sony Alpha", "Adidas Techfit"];
 
@@ -17,10 +17,11 @@ export default function ReviewsRag() {
 
   const run = async (text) => {
     const query = text ?? q;
-    if (!query.trim()) return;
+    if (loading || !query.trim()) return;
     setQ(query);
     setLoading(true);
     try { setData(await reviewsRag(query)); }
+    catch (e) { setData({ error: `Falha ao resumir avaliações: ${e.message}` }); }
     finally { setLoading(false); }
   };
 

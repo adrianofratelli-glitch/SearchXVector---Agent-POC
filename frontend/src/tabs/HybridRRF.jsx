@@ -31,9 +31,10 @@ export default function HybridRRF() {
   const [loading, setLoading] = useState(false);
 
   const run = async () => {
-    if (!q.trim()) return;
+    if (loading || !q.trim()) return;
     setLoading(true);
     try { setData(await hybrid({ query: q, k, n_search: nS, n_vector: nV })); }
+    catch (e) { setData({ error: `Falha na busca híbrida: ${e.message}` }); }
     finally { setLoading(false); }
   };
 

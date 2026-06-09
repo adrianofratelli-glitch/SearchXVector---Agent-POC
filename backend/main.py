@@ -2,7 +2,7 @@
 main.py — API FastAPI da POC Search × Vector.
 Sobe os endpoints que o frontend React (axios) consome.
 
-Rodar:  uvicorn main:app --reload --port 8000
+Rodar:  uvicorn main:app --reload --port 8200
 """
 
 import os
@@ -16,7 +16,7 @@ warnings.filterwarnings("ignore")
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 import atlas
 from agent import run_agent
@@ -25,32 +25,32 @@ from reviews import summarize_reviews
 app = FastAPI(title="Search × Vector POC API", version="1.0")
 
 # Origens liberadas — configurável via CORS_ORIGINS (lista separada por vírgula)
-_origins = os.getenv("CORS_ORIGINS", "http://localhost:5173,http://127.0.0.1:5173").split(",")
+_origins = os.getenv("CORS_ORIGINS", "http://localhost:5273,http://127.0.0.1:5273").split(",")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[o.strip() for o in _origins if o.strip()],
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "OPTIONS"],
+    allow_headers=["Content-Type"],
 )
 
 
 # ── Modelos ──────────────────────────────────────────────────────────────────
 class SearchReq(BaseModel):
-    query: str
+    query: str = Field(..., min_length=1, max_length=500)
     categorias: list[str] | None = None
-    preco_min: float = 0
-    preco_max: float = 15000
+    preco_min: float = Field(0, ge=0)
+    preco_max: float = Field(15000, ge=0)
     only_stock: bool = True
     synonyms: bool = False
 
 class CompareReq(BaseModel):
-    query: str
+    query: str = Field(..., min_length=1, max_length=500)
 
 class HybridReq(BaseModel):
-    query: str
-    k: int = 60
-    n_search: int = 20
-    n_vector: int = 20
+    query: str = Field(..., min_length=1, max_length=500)
+    k: int = Field(60, ge=1, le=1000)
+    n_search: int = Field(20, ge=1, le=100)
+    n_vector: int = Field(20, ge=1, le=100)
 
 class AgentReq(BaseModel):
     message: str
@@ -59,9 +59,10 @@ class AgentReq(BaseModel):
 class SimilarReq(BaseModel):
     produto_id: str | None = None
     nome: str | None = None
+    same_category: bool = True
 
 class ReviewsReq(BaseModel):
-    query: str
+    query: str = Field(..., min_length=1, max_length=500)
 
 
 # ── Rotas ────────────────────────────────────────────────────────────────────
@@ -117,7 +118,7 @@ def analytics():
 
 @app.post("/similar")
 def similar(req: SimilarReq):
-    return atlas.find_similar(produto_id=req.produto_id, nome=req.nome)
+    return atlas.find_similar(produto_id=req.produto_id, nome=req.nome, same_category=req.same_category)
 
 @app.post("/reviews-rag")
 def reviews_rag(req: ReviewsReq):

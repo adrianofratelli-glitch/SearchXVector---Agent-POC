@@ -1,4 +1,4 @@
-import { Overline, Body } from "@leafygreen-ui/typography";
+import { Overline } from "@leafygreen-ui/typography";
 import Leaf from "./Leaf";
 import { T, fmtCount } from "../theme";
 

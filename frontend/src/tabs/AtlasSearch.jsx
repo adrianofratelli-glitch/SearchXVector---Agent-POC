@@ -24,9 +24,10 @@ export default function AtlasSearch() {
   const [loading, setLoading] = useState(false);
 
   const run = async () => {
-    if (!q.trim()) return;
+    if (loading || !q.trim()) return;
     setLoading(true);
     try { setData(await search({ query: q, synonyms })); }
+    catch (e) { setData({ error: `Falha na busca: ${e.message}` }); }
     finally { setLoading(false); }
   };
 

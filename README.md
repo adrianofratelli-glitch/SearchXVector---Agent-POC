@@ -23,7 +23,7 @@ React + LeafyGreen  ──axios──►  FastAPI  ──►  MongoDB Atlas
 | UI | React 18 + Vite + **LeafyGreen** (design system oficial MongoDB) |
 | API | FastAPI (`backend/`) |
 | AI Agent | LangGraph — ReAct pattern |
-| LLM | Claude Haiku 4.5 (Anthropic) |
+| LLM | Claude Sonnet 4.6 (Anthropic) |
 | Embedding | VoyageAI voyage-4 via **autoEmbed** |
 | Banco de dados | MongoDB Atlas 8.0 |
 | Memória | MongoDBSaver — checkpoints por `thread_id` |
@@ -101,7 +101,7 @@ POC (database)
 
 ### Pré-requisitos
 - MongoDB Atlas cluster 8.0+
-- Conta Anthropic (Claude Haiku)
+- Conta Anthropic (Claude Sonnet)
 - Python 3.11+ · Node 18+
 
 ### Variáveis de ambiente
@@ -184,7 +184,7 @@ O toggle **Sinônimos** na Tab 1 usa um mapeamento chamado `sinonimos_produtos` 
 
 ![MongoDB Atlas](https://img.shields.io/badge/MongoDB%20Atlas-8.0-00ED64?style=flat&logo=mongodb&logoColor=white)
 ![LangGraph](https://img.shields.io/badge/LangGraph-ReAct-7C6DD8?style=flat)
-![Claude](https://img.shields.io/badge/Claude-Haiku%204.5-FF6B4A?style=flat)
+![Claude](https://img.shields.io/badge/Claude-Sonnet%204.6-FF6B4A?style=flat)
 ![Streamlit](https://img.shields.io/badge/Streamlit-1.x-FF4B4B?style=flat&logo=streamlit&logoColor=white)
 
 ---

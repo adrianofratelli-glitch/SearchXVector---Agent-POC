@@ -15,9 +15,10 @@ export default function Similares() {
   const [loading, setLoading] = useState(false);
 
   const run = async () => {
-    if (!nome.trim()) return;
+    if (loading || !nome.trim()) return;
     setLoading(true);
     try { setData(await findSimilar({ nome, same_category: filtered })); }
+    catch (e) { setData({ error: `Falha na busca: ${e.message}` }); }
     finally { setLoading(false); }
   };
 

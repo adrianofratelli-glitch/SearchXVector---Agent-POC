@@ -4,7 +4,7 @@ import Button from "@leafygreen-ui/button";
 import Banner from "@leafygreen-ui/banner";
 import { H3, Body, Subtitle } from "@leafygreen-ui/typography";
 import { compare } from "../api";
-import { T, fmtBRL } from "../theme";
+import { T } from "../theme";
 import ProductTable, { priceCol } from "../components/ProductTable";
 
 const SUGGESTIONS = ["academia em casa", "presente dia dos pais", "proteção solar rosto"];
@@ -16,10 +16,11 @@ export default function SearchVsVector() {
 
   const run = async (query) => {
     const text = query ?? q;
-    if (!text.trim()) return;
+    if (loading || !text.trim()) return;
     setQ(text);
     setLoading(true);
     try { setData(await compare(text)); }
+    catch (e) { setData({ error: `Falha na comparação: ${e.message}` }); }
     finally { setLoading(false); }
   };
 

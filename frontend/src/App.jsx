@@ -62,8 +62,8 @@ export default function App() {
           {offline && (
             <div style={{ background: "rgba(255,105,96,0.1)", border: `1px solid ${T.red}44`,
                           borderRadius: 8, padding: 16, color: T.red, marginBottom: 18 }}>
-              Backend não respondeu em <code>http://localhost:8000</code>. Rode{" "}
-              <code>uvicorn main:app --port 8000</code> dentro de <code>backend/</code>.
+              Backend não respondeu em <code>http://localhost:8200</code>. Rode{" "}
+              <code>bash start.sh</code> na raiz, ou <code>uvicorn main:app --port 8200</code> dentro de <code>backend/</code>.
             </div>
           )}
 
