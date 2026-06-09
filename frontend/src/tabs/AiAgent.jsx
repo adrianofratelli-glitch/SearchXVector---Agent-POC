@@ -44,13 +44,13 @@ export default function AiAgent() {
 
   return (
     <div>
-      <H3 style={{ color: T.text }}>Recomendações em Linguagem Natural</H3>
+      <H3 id="agent-title" style={{ color: T.text }}>Recomendações em Linguagem Natural</H3>
       <Body style={{ color: T.text2, marginBottom: 10 }}>
         LangGraph ReAct Agent + Claude — com raciocínio transparente (tool → MQL → resultado).
       </Body>
 
       <div style={{ display: "flex", gap: 8, marginBottom: 14, flexWrap: "wrap" }}>
-        <Badge variant="green">🧠 Memória {thread ? `· #${thread.slice(0, 8)}` : "ativa"}</Badge>
+        <Badge variant="green">🧠 Memória {thread ? `· #${thread.slice(0, 8)}` : "· nova conversa"}</Badge>
         <Badge variant="blue">⚙️ 4 ferramentas MongoDB</Badge>
         <Badge variant="darkgray">💾 checkpoints @ POC</Badge>
         {history.length > 0 && (
@@ -91,7 +91,7 @@ export default function AiAgent() {
       {/* Input */}
       <div style={{ display: "flex", gap: 12, marginTop: 16, alignItems: "flex-end" }}>
         <div style={{ flex: 1 }}>
-          <TextInput aria-label="Pergunta" placeholder="Pergunte sobre produtos…"
+          <TextInput aria-labelledby="agent-title" placeholder="Pergunte sobre produtos…"
             value={q} onChange={(e) => setQ(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && send()} darkMode />
         </div>

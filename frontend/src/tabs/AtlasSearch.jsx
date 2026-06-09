@@ -41,14 +41,14 @@ export default function AtlasSearch() {
 
   return (
     <div>
-      <H3 style={{ color: T.text }}>Busca Inteligente de Produtos</H3>
+      <H3 id="atlas-search-title" style={{ color: T.text }}>Busca Inteligente de Produtos</H3>
       <Body style={{ color: T.text2, marginBottom: 16 }}>
         Autocomplete, fuzzy matching e highlight ao vivo — como um e-commerce real.
       </Body>
 
       <div style={{ display: "flex", gap: 12, alignItems: "flex-end", marginBottom: 8 }}>
         <div style={{ flex: 1 }}>
-          <TextInput label="" aria-label="Busca" placeholder="Nike, notebook, adidass, samsumg…"
+          <TextInput aria-labelledby="atlas-search-title" placeholder="Nike, notebook, adidass, samsumg…"
             value={q} onChange={(e) => setQ(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && run()} darkMode sizeVariant="default" />
         </div>

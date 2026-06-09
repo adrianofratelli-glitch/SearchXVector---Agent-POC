@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { T, fmtBRL } from "../theme";
 
 // Tabela de produtos consistente, usada em todas as abas
@@ -7,7 +8,7 @@ export default function ProductTable({ rows, columns }) {
   }
   return (
     <div style={{ border: `1px solid ${T.border}`, borderRadius: 8, overflow: "hidden" }}>
-      <table style={{ width: "100%", borderCollapse: "collapse" }}>
+      <table className="ptable" style={{ width: "100%", borderCollapse: "collapse" }}>
         <thead>
           <tr style={{ background: "#002A40" }}>
             {columns.map((c) => (
@@ -43,10 +44,19 @@ export function priceCol() {
 }
 
 export function MqlBlock({ pipeline, collection }) {
+  const [copied, setCopied] = useState(false);
+  const copy = (e) => {
+    e.preventDefault(); // não abre/fecha o <details>
+    navigator.clipboard.writeText(JSON.stringify(pipeline, null, 2));
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1600);
+  };
   return (
     <details style={{ marginTop: 14, background: T.surface, border: `1px solid ${T.border}`, borderRadius: 8 }}>
-      <summary style={{ cursor: "pointer", padding: "10px 14px", fontSize: 13, color: T.text2, listStyle: "none" }}>
-        🔧 Pipeline MQL executado no MongoDB {collection ? `· ${collection}` : ""}
+      <summary style={{ cursor: "pointer", padding: "10px 14px", fontSize: 13, color: T.text2, listStyle: "none",
+                        display: "flex", alignItems: "center", gap: 10 }}>
+        <span style={{ flex: 1 }}>🔧 Pipeline MQL executado no MongoDB {collection ? `· ${collection}` : ""}</span>
+        <button className="copy-btn" onClick={copy}>{copied ? "✓ copiado" : "copiar"}</button>
       </summary>
       <pre style={{ margin: 0, padding: 14, borderTop: `1px solid ${T.border}`, overflow: "auto",
                     fontSize: 12, color: T.green, fontFamily: T.mono, maxHeight: 320 }}>

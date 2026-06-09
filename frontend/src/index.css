@@ -43,3 +43,50 @@ html, body, #root {
 ::-webkit-scrollbar-thumb:hover { background: rgba(0,237,100,0.35); }
 
 code, pre { font-family: "Source Code Pro", monospace; }
+
+::selection { background: rgba(0,237,100,0.25); }
+
+/* Entrada suave do conteúdo das tabs */
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: none; }
+}
+.fade-up { animation: fadeUp 0.28s ease both; }
+
+/* Pulso do indicador de status */
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.45; }
+}
+.pulse-dot { animation: pulse 2.2s ease-in-out infinite; }
+
+/* KPI cards */
+.kpi-card { transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease; }
+.kpi-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(0,0,0,0.35);
+}
+
+/* Tabela de produtos */
+.ptable tbody tr { transition: background 0.12s ease; }
+.ptable tbody tr:nth-child(even) { background: rgba(255,255,255,0.015); }
+.ptable tbody tr:hover { background: rgba(0,237,100,0.05); }
+
+/* Nav da sidebar */
+.nav-item:hover { background: rgba(255,255,255,0.04) !important; color: #E3FCF7 !important; }
+
+/* Cards de resultado (Similares etc.) */
+.result-card { transition: transform 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease; }
+.result-card:hover {
+  transform: translateY(-1px);
+  border-color: rgba(0,237,100,0.3) !important;
+  box-shadow: 0 4px 14px rgba(0,0,0,0.3);
+}
+
+/* Botão copiar do bloco MQL */
+.copy-btn {
+  background: rgba(0,237,100,0.08); border: 1px solid rgba(0,237,100,0.25);
+  color: #00ED64; font-size: 11px; font-family: "Source Code Pro", monospace;
+  padding: 3px 10px; border-radius: 4px; cursor: pointer; transition: background 0.15s ease;
+}
+.copy-btn:hover { background: rgba(0,237,100,0.18); }

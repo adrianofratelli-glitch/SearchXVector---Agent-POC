@@ -5,9 +5,9 @@ const COLORS = { green: T.green, blue: T.blue, purple: T.purple, teal: T.teal, y
 export default function KpiCard({ label, value, sub, color = "green" }) {
   const accent = COLORS[color] || T.green;
   return (
-    <div style={{
+    <div className="kpi-card" style={{
       flex: 1,
-      background: "linear-gradient(160deg, rgba(0,0,0,0.15) 0%, #002235 100%)",
+      background: `linear-gradient(160deg, ${accent}0D 0%, #002235 55%)`,
       border: "1px solid rgba(255,255,255,0.06)",
       borderTop: `3px solid ${accent}`,
       borderRadius: "0 0 8px 8px",

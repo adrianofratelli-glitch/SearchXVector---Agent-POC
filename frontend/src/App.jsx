@@ -35,8 +35,9 @@ export default function App() {
 
   return (
     <LeafyGreenProvider darkMode>
-      <div style={{ display: "flex", minHeight: "100vh", background: T.bg }}>
-        <Sidebar active={tab} onSelect={setTab} stats={stats} />
+      <div style={{ display: "flex", minHeight: "100vh",
+                    background: `radial-gradient(1100px 500px at 75% -10%, rgba(0,237,100,0.05), transparent 60%), ${T.bg}` }}>
+        <Sidebar active={tab} onSelect={setTab} stats={stats} offline={offline} />
 
         <div style={{ flex: 1, padding: "0 28px 40px", maxWidth: 1320 }}>
           {/* Header */}
@@ -77,13 +78,13 @@ export default function App() {
 
           {/* Tabs */}
           <Tabs aria-label="Funcionalidades" selected={tab} setSelected={setTab} darkMode>
-            <Tab name="🔍 Atlas Search"><div style={{ paddingTop: 18 }}><AtlasSearch /></div></Tab>
-            <Tab name="⚡ Search vs Vector"><div style={{ paddingTop: 18 }}><SearchVsVector /></div></Tab>
-            <Tab name="🔀 Hybrid RRF"><div style={{ paddingTop: 18 }}><HybridRRF /></div></Tab>
-            <Tab name="🎯 Similares"><div style={{ paddingTop: 18 }}><Similares /></div></Tab>
-            <Tab name="📊 Analytics"><div style={{ paddingTop: 18 }}><Analytics /></div></Tab>
-            <Tab name="💬 Reviews RAG"><div style={{ paddingTop: 18 }}><ReviewsRag /></div></Tab>
-            <Tab name="🤖 AI Agent"><div style={{ paddingTop: 18 }}><AiAgent /></div></Tab>
+            <Tab name="🔍 Atlas Search"><div className="fade-up" style={{ paddingTop: 18 }}><AtlasSearch /></div></Tab>
+            <Tab name="⚡ Search vs Vector"><div className="fade-up" style={{ paddingTop: 18 }}><SearchVsVector /></div></Tab>
+            <Tab name="🔀 Hybrid RRF"><div className="fade-up" style={{ paddingTop: 18 }}><HybridRRF /></div></Tab>
+            <Tab name="🎯 Similares"><div className="fade-up" style={{ paddingTop: 18 }}><Similares /></div></Tab>
+            <Tab name="📊 Analytics"><div className="fade-up" style={{ paddingTop: 18 }}><Analytics /></div></Tab>
+            <Tab name="💬 Reviews RAG"><div className="fade-up" style={{ paddingTop: 18 }}><ReviewsRag /></div></Tab>
+            <Tab name="🤖 AI Agent"><div className="fade-up" style={{ paddingTop: 18 }}><AiAgent /></div></Tab>
           </Tabs>
         </div>
       </div>

@@ -38,7 +38,7 @@ export default function SearchVsVector() {
 
   return (
     <div>
-      <H3 style={{ color: T.text }}>Atlas Search vs Vector Search</H3>
+      <H3 id="svv-title" style={{ color: T.text }}>Atlas Search vs Vector Search</H3>
       <Body style={{ color: T.text2, marginBottom: 12 }}>
         Busca por palavra-chave vs significado semântico — lado a lado, mais a fusão RRF.
       </Body>
@@ -49,7 +49,7 @@ export default function SearchVsVector() {
 
       <div style={{ display: "flex", gap: 12, alignItems: "flex-end", marginBottom: 10 }}>
         <div style={{ flex: 1 }}>
-          <TextInput aria-label="Consulta" placeholder="academia em casa, home office…"
+          <TextInput aria-labelledby="svv-title" placeholder="academia em casa, home office…"
             value={q} onChange={(e) => setQ(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && run()} darkMode />
         </div>

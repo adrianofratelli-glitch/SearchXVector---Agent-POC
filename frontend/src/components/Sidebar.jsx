@@ -18,7 +18,8 @@ const NAV = [
 
 const COL_COLORS = [T.green, T.blue, T.purple];
 
-export default function Sidebar({ active, onSelect, stats }) {
+export default function Sidebar({ active, onSelect, stats, offline = false }) {
+  const statusColor = offline ? T.red : T.green;
   const collections = stats?.collections || {};
   const indices = stats?.indices || [];
 
@@ -51,6 +52,7 @@ export default function Sidebar({ active, onSelect, stats }) {
             const on = active === it.tab;
             return (
               <div key={it.label} onClick={() => onSelect(it.tab)}
+                className={on ? undefined : "nav-item"}
                 style={{
                   display: "flex", alignItems: "center", gap: 10, padding: "8px 12px",
                   borderRadius: "0 6px 6px 0", cursor: "pointer", marginBottom: 2,
@@ -100,15 +102,15 @@ export default function Sidebar({ active, onSelect, stats }) {
 
       {/* Cluster pill */}
       <div style={{ marginTop: "auto", paddingTop: 16 }}>
-        <div style={{ background: "rgba(0,237,100,0.06)", border: `1px solid rgba(0,237,100,0.18)`,
+        <div style={{ background: `${statusColor}0F`, border: `1px solid ${statusColor}2E`,
                       borderRadius: 6, padding: "10px 12px" }}>
           <div style={{ fontSize: 9, color: T.text3, textTransform: "uppercase",
                         letterSpacing: "0.14em", marginBottom: 5 }}>Cluster</div>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-            <span style={{ fontFamily: T.mono, fontSize: 13, fontWeight: 700, color: T.green }}>POC</span>
-            <span style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 11, color: T.green, fontWeight: 600 }}>
-              <span style={{ width: 6, height: 6, borderRadius: "50%", background: T.green,
-                             boxShadow: `0 0 6px ${T.green}` }} />Online
+            <span style={{ fontFamily: T.mono, fontSize: 13, fontWeight: 700, color: statusColor }}>POC</span>
+            <span style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 11, color: statusColor, fontWeight: 600 }}>
+              <span className="pulse-dot" style={{ width: 6, height: 6, borderRadius: "50%", background: statusColor,
+                             boxShadow: `0 0 6px ${statusColor}` }} />{offline ? "Offline" : "Online"}
             </span>
           </div>
         </div>

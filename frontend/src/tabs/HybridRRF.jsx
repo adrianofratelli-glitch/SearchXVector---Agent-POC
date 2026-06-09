@@ -49,14 +49,14 @@ export default function HybridRRF() {
 
   return (
     <div>
-      <H3 style={{ color: T.text }}>Hybrid Search — Reciprocal Rank Fusion</H3>
+      <H3 id="hybrid-title" style={{ color: T.text }}>Hybrid Search — Reciprocal Rank Fusion</H3>
       <Body style={{ color: T.text2, marginBottom: 6 }}>
         Combina Atlas Search + Vector Search num único ranking. <InlineCode darkMode>score = Σ 1/(k + rank)</InlineCode>
       </Body>
 
       <div style={{ display: "flex", gap: 12, alignItems: "flex-end", margin: "12px 0" }}>
         <div style={{ flex: 1 }}>
-          <TextInput aria-label="Consulta Hybrid" placeholder="tênis de corrida, fone sem fio…"
+          <TextInput aria-labelledby="hybrid-title" placeholder="tênis de corrida, fone sem fio…"
             value={q} onChange={(e) => setQ(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && run()} darkMode />
         </div>

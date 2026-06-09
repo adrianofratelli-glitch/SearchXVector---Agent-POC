@@ -6,6 +6,7 @@ Rodar:  uvicorn main:app --reload --port 8200
 """
 
 import os
+import time
 import uuid
 import warnings
 from dotenv import load_dotenv
@@ -112,9 +113,18 @@ def agent_route(req: AgentReq):
     out["thread_id"] = thread_id
     return out
 
+# O $facet do analytics samplea 12k docs — caro p/ repetir a cada refresh; cache de 5 min
+_analytics_cache = {"data": None, "ts": 0.0}
+
 @app.get("/analytics")
 def analytics():
-    return atlas.get_analytics()
+    if _analytics_cache["data"] is None or time.time() - _analytics_cache["ts"] > 300:
+        data = atlas.get_analytics()
+        if isinstance(data, dict) and data.get("error"):
+            return data  # erro não entra no cache
+        _analytics_cache["data"] = data
+        _analytics_cache["ts"] = time.time()
+    return _analytics_cache["data"]
 
 @app.post("/similar")
 def similar(req: SimilarReq):

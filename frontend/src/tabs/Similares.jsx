@@ -24,7 +24,7 @@ export default function Similares() {
 
   return (
     <div>
-      <H3 style={{ color: T.text }}>Produtos Similares — Vector "More Like This"</H3>
+      <H3 id="similares-title" style={{ color: T.text }}>Produtos Similares — Vector "More Like This"</H3>
       <Body style={{ color: T.text2, marginBottom: 16 }}>
         Busca semântica usando a descrição como query (autoEmbed voyage-4). Com o{" "}
         <b style={{ color: T.green }}>pre-filtering</b> ligado, o filtro de categoria roda <b>dentro</b> do{" "}
@@ -33,7 +33,7 @@ export default function Similares() {
 
       <div style={{ display: "flex", gap: 12, alignItems: "center", marginBottom: 8, flexWrap: "wrap" }}>
         <div style={{ flex: 1, minWidth: 280 }}>
-          <TextInput label="" aria-label="Produto" placeholder="Ex: Nike Air Max, Duna, Notebook Dell…"
+          <TextInput aria-labelledby="similares-title" placeholder="Ex: Nike Air Max, Duna, Notebook Dell…"
             value={nome} onChange={(e) => setNome(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && run()} darkMode />
         </div>
@@ -63,9 +63,9 @@ export default function Similares() {
           <Subtitle style={{ color: T.text, fontSize: 14, marginBottom: 12 }}>
             {data.similares.length} produtos semanticamente similares
           </Subtitle>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))", gap: 12 }}>
             {data.similares.map((s, i) => (
-              <div key={i} style={{ background: T.surface, border: `1px solid ${T.borderSub}`, borderRadius: 8, padding: "12px 16px" }}>
+              <div key={i} className="result-card" style={{ background: T.surface, border: `1px solid ${T.borderSub}`, borderRadius: 8, padding: "12px 16px" }}>
                 <div style={{ display: "flex", justifyContent: "space-between", gap: 10 }}>
                   <div style={{ fontSize: 14, fontWeight: 600, color: T.text }}>{s.nome}</div>
                   <div style={{ fontFamily: T.mono, fontSize: 12, color: T.teal, whiteSpace: "nowrap" }}>
