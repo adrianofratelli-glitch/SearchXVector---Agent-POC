@@ -8,15 +8,19 @@ import ReactMarkdown from "react-markdown";
 import { reviewsRag } from "../api";
 import { T, fmtBRL } from "../theme";
 
+const SUGESTOES = ["ASUS ZenBook", "Royal Canin", "Garmin Fenix", "Sony Alpha", "Adidas Techfit"];
+
 export default function ReviewsRag() {
   const [q, setQ] = useState("");
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(false);
 
-  const run = async () => {
-    if (!q.trim()) return;
+  const run = async (text) => {
+    const query = text ?? q;
+    if (!query.trim()) return;
+    setQ(query);
     setLoading(true);
-    try { setData(await reviewsRag(q)); }
+    try { setData(await reviewsRag(query)); }
     finally { setLoading(false); }
   };
 
@@ -30,14 +34,22 @@ export default function ReviewsRag() {
 
       <div style={{ display: "flex", gap: 12, marginBottom: 16, flexWrap: "wrap" }}>
         <div style={{ flex: 1, minWidth: 280 }}>
-          <TextInput label="" aria-label="Produto" placeholder="Ex: Nike Air Max, fone JBL, notebook…"
+          <TextInput label="" aria-label="Produto" placeholder="Ex: ASUS ZenBook, Royal Canin, Garmin…"
             value={q} onChange={(e) => setQ(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && run()} darkMode />
         </div>
-        <Button variant="primary" onClick={run} disabled={loading} darkMode>
+        <Button variant="primary" onClick={() => run()} disabled={loading} darkMode>
           {loading ? "Analisando avaliações…" : "Resumir Avaliações"}
         </Button>
       </div>
+
+      {!data && (
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 16 }}>
+          {SUGESTOES.map((s) => (
+            <Button key={s} size="xsmall" variant="default" darkMode onClick={() => run(s)}>{s}</Button>
+          ))}
+        </div>
+      )}
 
       {data?.error && <Banner variant="warning">{data.error}</Banner>}
 
