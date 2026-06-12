@@ -79,7 +79,7 @@ export default function App() {
           </div>
 
           {/* Tabs */}
-          <Tabs aria-label="Funcionalidades" selected={tab} setSelected={setTab} darkMode>
+          <Tabs aria-label="Funcionalidades" value={tab} onValueChange={setTab} darkMode>
             <Tab name="🔍 Atlas Search"><div className="fade-up" style={{ paddingTop: 18 }}><AtlasSearch /></div></Tab>
             <Tab name="⚡ Search vs Vector"><div className="fade-up" style={{ paddingTop: 18 }}><SearchVsVector /></div></Tab>
             <Tab name="🔀 Hybrid RRF"><div className="fade-up" style={{ paddingTop: 18 }}><HybridRRF /></div></Tab>
