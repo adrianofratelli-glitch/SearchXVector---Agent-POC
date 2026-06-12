@@ -41,7 +41,8 @@ export default function AtlasSearch() {
 
   return (
     <div>
-      <H3 id="atlas-search-title" style={{ color: T.text }}>Busca Inteligente de Produtos</H3>
+      <div className="section-label">Atlas Search · Full-Text</div>
+      <H3 id="atlas-search-title" style={{ color: T.text, fontFamily: T.font, letterSpacing: "-0.02em" }}>Busca Inteligente de Produtos</H3>
       <Body style={{ color: T.text2, marginBottom: 16 }}>
         Autocomplete, fuzzy matching e highlight ao vivo — como um e-commerce real.
       </Body>

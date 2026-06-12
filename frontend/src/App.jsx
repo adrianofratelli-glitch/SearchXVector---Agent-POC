@@ -35,28 +35,30 @@ export default function App() {
 
   return (
     <LeafyGreenProvider darkMode>
-      <div style={{ display: "flex", minHeight: "100vh",
-                    background: `radial-gradient(1100px 500px at 75% -10%, rgba(0,237,100,0.05), transparent 60%), ${T.bg}` }}>
+      <div style={{ display: "flex", minHeight: "100vh" }}>
         <Sidebar active={tab} onSelect={setTab} stats={stats} offline={offline} />
 
         <div style={{ flex: 1, padding: "0 28px 40px", maxWidth: 1320 }}>
           {/* Header */}
-          <div style={{ display: "flex", alignItems: "center", gap: 13, flexWrap: "wrap",
-                        padding: "18px 0 14px", borderBottom: `1px solid ${T.border}`, marginBottom: 18 }}>
-            <Leaf size={24} />
-            <span style={{ fontFamily: "'MongoDB Value Serif', Georgia, serif", fontSize: 23,
-                           fontWeight: 700, color: T.text, letterSpacing: "-0.015em" }}>
-              Marketplace × MongoDB Atlas
-            </span>
-            <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-              {PILLS.map((p) => (
-                <span key={p.label} style={{ fontSize: 10, fontWeight: 700, padding: "3px 10px",
-                  borderRadius: 4, border: `1px solid ${p.color}44`, background: `${p.color}1A`,
-                  color: p.color, textTransform: "uppercase", letterSpacing: "0.07em" }}>{p.label}</span>
-              ))}
+          <div style={{ padding: "26px 0 18px", borderBottom: `1px solid ${T.border}`, marginBottom: 20 }}>
+            <div className="kicker" style={{ marginBottom: 10 }}>MongoDB Atlas · Proof of Concept</div>
+            <div style={{ display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
+              <Leaf size={28} />
+              <span style={{ fontSize: 34, fontWeight: 800, color: T.text,
+                             letterSpacing: "-0.04em", lineHeight: 1.05 }}>
+                Marketplace <span style={{ color: T.green }}>×</span> Atlas Search
+              </span>
+              <div style={{ marginLeft: "auto", fontSize: 11.5, color: T.text3, fontFamily: T.mono }}>
+                {offline ? "⚠ backend offline" : "db: POC · voyage-4 autoEmbed · LangGraph ReAct"}
+              </div>
             </div>
-            <div style={{ marginLeft: "auto", fontSize: 12, color: T.text3, fontFamily: T.mono }}>
-              {offline ? "⚠ backend offline" : "db: POC · voyage-4 autoEmbed · LangGraph ReAct"}
+            <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 14 }}>
+              {PILLS.map((p) => (
+                <span key={p.label} className="hdr-pill"
+                  style={{ borderColor: `${p.color}44`, background: `${p.color}14`, color: p.color }}>
+                  {p.label}
+                </span>
+              ))}
             </div>
           </div>
 
@@ -68,8 +70,8 @@ export default function App() {
             </div>
           )}
 
-          {/* KPIs */}
-          <div style={{ display: "flex", gap: 14, marginBottom: 20 }}>
+          {/* KPIs — stat-bar segmentada, estilo pitch */}
+          <div className="stat-bar" style={{ marginBottom: 22 }}>
             <KpiCard label="Documentos" value={fmtCount(c.produtos)} sub="produtos indexados" color="green" />
             <KpiCard label="Vetores Indexados" value={fmtCount(c.produtos_vector)} sub="embeddings · voyage-4" color="blue" />
             <KpiCard label="Avaliações" value={fmtCount(c.avaliacoes)} sub="reviews p/ o AI Agent" color="purple" />

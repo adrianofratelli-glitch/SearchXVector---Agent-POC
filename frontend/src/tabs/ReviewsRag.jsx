@@ -27,7 +27,8 @@ export default function ReviewsRag() {
 
   return (
     <div>
-      <H3 id="rag-title" style={{ color: T.text }}>Reviews RAG — Resumo de Avaliações Reais</H3>
+      <div className="section-label">RAG · Claude + Atlas</div>
+      <H3 id="rag-title" style={{ color: T.text, fontFamily: T.font, letterSpacing: "-0.02em" }}>Reviews RAG — Resumo de Avaliações Reais</H3>
       <Body style={{ color: T.text2, marginBottom: 16 }}>
         Atlas Search acha o produto → puxa avaliações reais do MongoDB (coleção <code style={{ color: T.green }}>avaliacoes</code>) →
         Claude resume <b>apenas com base nos dados reais</b>. RAG operacional, tudo num cluster só.

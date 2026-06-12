@@ -24,7 +24,8 @@ export default function Similares() {
 
   return (
     <div>
-      <H3 id="similares-title" style={{ color: T.text }}>Produtos Similares — Vector "More Like This"</H3>
+      <div className="section-label">Vector · Pre-Filtering</div>
+      <H3 id="similares-title" style={{ color: T.text, fontFamily: T.font, letterSpacing: "-0.02em" }}>Produtos Similares — Vector "More Like This"</H3>
       <Body style={{ color: T.text2, marginBottom: 16 }}>
         Busca semântica usando a descrição como query (autoEmbed voyage-4). Com o{" "}
         <b style={{ color: T.green }}>pre-filtering</b> ligado, o filtro de categoria roda <b>dentro</b> do{" "}

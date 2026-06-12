@@ -44,7 +44,8 @@ export default function AiAgent() {
 
   return (
     <div>
-      <H3 id="agent-title" style={{ color: T.text }}>Recomendações em Linguagem Natural</H3>
+      <div className="section-label">AI Agent · LangGraph ReAct</div>
+      <H3 id="agent-title" style={{ color: T.text, fontFamily: T.font, letterSpacing: "-0.02em" }}>Recomendações em Linguagem Natural</H3>
       <Body style={{ color: T.text2, marginBottom: 10 }}>
         LangGraph ReAct Agent + Claude — com raciocínio transparente (tool → MQL → resultado).
       </Body>
@@ -118,7 +119,7 @@ function Msg({ msg }) {
       <Body style={{ color: msg.error ? T.red : T.text, whiteSpace: "pre-wrap" }}>{msg.content}</Body>
 
       {msg.trace?.length > 0 && (
-        <details style={{ marginTop: 10, background: "#001E2B", border: `1px solid ${T.border}`, borderRadius: 6 }}>
+        <details style={{ marginTop: 10, background: T.codeBg, border: `1px solid ${T.border}`, borderRadius: 10 }}>
           <summary style={{ cursor: "pointer", padding: "8px 12px", fontSize: 12, color: T.text2, listStyle: "none" }}>
             🔍 Raciocínio do agente · {msg.trace.length} ferramenta(s)
           </summary>

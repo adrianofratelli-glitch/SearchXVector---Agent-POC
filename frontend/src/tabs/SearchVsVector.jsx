@@ -38,7 +38,8 @@ export default function SearchVsVector() {
 
   return (
     <div>
-      <H3 id="svv-title" style={{ color: T.text }}>Atlas Search vs Vector Search</H3>
+      <div className="section-label">Lexical vs Semântico</div>
+      <H3 id="svv-title" style={{ color: T.text, fontFamily: T.font, letterSpacing: "-0.02em" }}>Atlas Search vs Vector Search</H3>
       <Body style={{ color: T.text2, marginBottom: 12 }}>
         Busca por palavra-chave vs significado semântico — lado a lado, mais a fusão RRF.
       </Body>

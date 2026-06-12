@@ -34,8 +34,8 @@ export default function Sidebar({ active, onSelect, stats, offline = false }) {
                     borderBottom: `1px solid ${T.border}`, marginBottom: 8 }}>
         <Leaf size={26} />
         <div>
-          <div style={{ fontFamily: "'MongoDB Value Serif', Georgia, serif", fontSize: 16,
-                        fontWeight: 700, color: T.text, lineHeight: 1.15 }}>Search × Vector</div>
+          <div style={{ fontSize: 16, fontWeight: 800, letterSpacing: "-0.02em",
+                        color: T.text, lineHeight: 1.15 }}>Search × Vector</div>
           <div style={{ fontFamily: T.mono, fontSize: 9, color: T.text3,
                         textTransform: "uppercase", letterSpacing: "0.15em", marginTop: 2 }}>
             MongoDB Atlas POC

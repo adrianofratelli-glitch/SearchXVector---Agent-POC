@@ -39,7 +39,8 @@ export default function Analytics() {
 
   return (
     <div>
-      <H3 style={{ color: T.text }}>Analytics em Tempo Real</H3>
+      <div className="section-label">Aggregation · $facet</div>
+      <H3 style={{ color: T.text, fontFamily: T.font, letterSpacing: "-0.02em" }}>Analytics em Tempo Real</H3>
       <Body style={{ color: T.text2, marginBottom: 8 }}>
         Um único <code style={{ color: T.green }}>$facet</code> roda vários agregados em paralelo no servidor — MongoDB
         como engine analítico sobre a base de produtos. <Badge variant="green">{data.elapsed_ms} ms</Badge>

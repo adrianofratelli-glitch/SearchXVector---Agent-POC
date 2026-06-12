@@ -10,7 +10,7 @@ export default function ProductTable({ rows, columns }) {
     <div style={{ border: `1px solid ${T.border}`, borderRadius: 8, overflow: "hidden" }}>
       <table className="ptable" style={{ width: "100%", borderCollapse: "collapse" }}>
         <thead>
-          <tr style={{ background: "#002A40" }}>
+          <tr style={{ background: T.surface2 }}>
             {columns.map((c) => (
               <th key={c.key} style={{
                 textAlign: c.align || "left", padding: "9px 12px", fontSize: 10, fontWeight: 700,
@@ -52,14 +52,14 @@ export function MqlBlock({ pipeline, collection }) {
     setTimeout(() => setCopied(false), 1600);
   };
   return (
-    <details style={{ marginTop: 14, background: T.surface, border: `1px solid ${T.border}`, borderRadius: 8 }}>
+    <details style={{ marginTop: 14, background: T.surface, border: `1px solid ${T.border}`, borderRadius: 12 }}>
       <summary style={{ cursor: "pointer", padding: "10px 14px", fontSize: 13, color: T.text2, listStyle: "none",
                         display: "flex", alignItems: "center", gap: 10 }}>
         <span style={{ flex: 1 }}>🔧 Pipeline MQL executado no MongoDB {collection ? `· ${collection}` : ""}</span>
         <button className="copy-btn" onClick={copy}>{copied ? "✓ copiado" : "copiar"}</button>
       </summary>
       <pre style={{ margin: 0, padding: 14, borderTop: `1px solid ${T.border}`, overflow: "auto",
-                    fontSize: 12, color: T.green, fontFamily: T.mono, maxHeight: 320 }}>
+                    fontSize: 12, color: T.green, fontFamily: T.mono, maxHeight: 320, background: T.codeBg }}>
         {JSON.stringify(pipeline, null, 2)}
       </pre>
     </details>

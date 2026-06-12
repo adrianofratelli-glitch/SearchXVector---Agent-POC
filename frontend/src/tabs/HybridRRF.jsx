@@ -49,7 +49,8 @@ export default function HybridRRF() {
 
   return (
     <div>
-      <H3 id="hybrid-title" style={{ color: T.text }}>Hybrid Search — Reciprocal Rank Fusion</H3>
+      <div className="section-label">Hybrid · $rankFusion</div>
+      <H3 id="hybrid-title" style={{ color: T.text, fontFamily: T.font, letterSpacing: "-0.02em" }}>Hybrid Search — Reciprocal Rank Fusion</H3>
       <Body style={{ color: T.text2, marginBottom: 6 }}>
         Combina Atlas Search + Vector Search num único ranking. <InlineCode darkMode>score = Σ 1/(k + rank)</InlineCode>
       </Body>
