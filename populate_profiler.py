@@ -1,7 +1,7 @@
 """
 populate_profiler.py
-Popula o Atlas Performance Advisor e Query Profiler com queries variadas
-sobre banco_inter (fatura + transacoes)
+Exercises the Atlas Performance Advisor and Query Profiler with a variety of
+queries over banco_inter (fatura + transacoes).
 """
 
 import time
@@ -40,9 +40,9 @@ def run(label, cursor_or_result):
             list(cursor_or_result)
         total += 1
         if total % 20 == 0:
-            print(f"  [{total} queries] última: {label}")
+            print(f"  [{total} queries] last: {label}")
     except Exception as e:
-        print(f"  ERRO em {label}: {e}")
+        print(f"  ERROR in {label}: {e}")
 
 def batch(iteration):
     seg  = random.choice(SEGMENTS)
@@ -53,35 +53,35 @@ def batch(iteration):
     amt_low  = str(random.randint(100, 2000))
     amt_high = str(random.randint(3000, 8000))
 
-    # ── 1. Full scans simples ──────────────────────────────────────
+    # ── 1. Simple full scans ───────────────────────────────────────
     run("tx type", transacoes.find({"amos_mt_type": typ}).limit(100))
     run("fat type", fatura.find({"amss_mt_type": typ}).limit(100))
 
-    # ── 2. Range por valor (sem índice regular) ────────────────────
+    # ── 2. Range by amount (no regular index) ──────────────────────
     run("tx amount range", transacoes.find(
         {"amos_mt_amount": {"$gt": amt_low, "$lt": amt_high}}).limit(50))
     run("fat amount range", fatura.find(
         {"amss_mt_amount": {"$gt": amt_low, "$lt": amt_high}}).limit(50))
 
-    # ── 3. Account + sort sem índice composto ─────────────────────
+    # ── 3. Account + sort with no compound index ──────────────────
     run("tx account sort", transacoes.find(
         {"account_number": acc}).sort("amos_mt_amount", -1).limit(20))
     run("fat account sort", fatura.find(
         {"account_number": acc}).sort("amss_mt_amount", -1).limit(20))
 
-    # ── 4. Categoria + segmento ───────────────────────────────────
+    # ── 4. Category + segment ─────────────────────────────────────
     run("tx cat+seg", transacoes.find(
         {"amos_mt_category_code": cat, "segmento": seg}).limit(50))
     run("fat cat+seg", fatura.find(
         {"amss_mt_category_code": cat, "segmento": seg}).limit(50))
 
-    # ── 5. Plano + tipo ───────────────────────────────────────────
+    # ── 5. Plan + type ────────────────────────────────────────────
     run("tx plan+type", transacoes.find(
         {"amos_mt_plan": plan, "amos_mt_type": typ}).limit(50))
     run("fat plan+type", fatura.find(
         {"amss_mt_plan": plan, "amss_mt_type": typ}).limit(50))
 
-    # ── 6. Sort sem índice ────────────────────────────────────────
+    # ── 6. Sort with no index ─────────────────────────────────────
     run("tx sort amount desc", transacoes.find(
         {"segmento": seg}).sort("amos_mt_amount", -1).limit(30))
     run("fat sort amount desc", fatura.find(
@@ -130,7 +130,7 @@ def batch(iteration):
     run("fat eff date", fatura.find(
         {"amss_mt_eff_date": {"$gte": "20240101", "$lte": "20241231"}}).limit(50))
 
-    # ── 9. Multi-field sem índice ─────────────────────────────────
+    # ── 9. Multi-field with no index ──────────────────────────────
     run("tx multi", transacoes.find({
         "segmento": seg,
         "amos_mt_type": typ,
@@ -148,7 +148,7 @@ def batch(iteration):
     run("tx installment", transacoes.find(
         {"amos_mt_inst_nbr": inst, "segmento": seg}).limit(40))
 
-    # ── 11. agg diaria ───────────────────────────────────────────
+    # ── 11. daily aggregation ─────────────────────────────────────
     run("tx agg diaria", transacoes.aggregate([
         {"$match": {"segmento": seg}},
         {"$group": {"_id": "$diaria_data",
@@ -158,7 +158,7 @@ def batch(iteration):
         {"$limit": 30}
     ]))
 
-    # ── 12. Regex (muito lento, ótimo para Profiler) ──────────────
+    # ── 12. Regex (very slow, great for the Profiler) ─────────────
     prefixes = ["SHOPEE", "AMAZON", "IFOOD", "SUPERMERCADO", "FORT"]
     prefix = random.choice(prefixes)
     run("tx regex desc", transacoes.find(
@@ -169,18 +169,18 @@ def batch(iteration):
 
 # ── MAIN ──────────────────────────────────────────────────────────────
 ROUNDS = 10
-print(f"Iniciando {ROUNDS} rodadas de queries...")
-print(f"Início: {datetime.now().strftime('%H:%M:%S')}\n")
+print(f"Starting {ROUNDS} rounds of queries...")
+print(f"Start: {datetime.now().strftime('%H:%M:%S')}\n")
 
 for i in range(1, ROUNDS + 1):
-    print(f"Rodada {i}/{ROUNDS}...")
+    print(f"Round {i}/{ROUNDS}...")
     batch(i)
     time.sleep(0.5)
 
-print(f"\nFinalizado: {datetime.now().strftime('%H:%M:%S')}")
-print(f"Total de queries executadas: {total}")
-print("\nAcesse no Atlas UI:")
-print("  → Performance Advisor: sugestões de índices")
-print("  → Profiler: todas as queries com tempo e plano de execução")
+print(f"\nFinished: {datetime.now().strftime('%H:%M:%S')}")
+print(f"Total queries executed: {total}")
+print("\nOpen in the Atlas UI:")
+print("  → Performance Advisor: index suggestions")
+print("  → Profiler: every query with timing and execution plan")
 
 client.close()

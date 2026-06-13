@@ -1,8 +1,8 @@
 """
-main.py — API FastAPI da POC Search × Vector.
-Sobe os endpoints que o frontend React (axios) consome.
+main.py — FastAPI API for the Search & Vector POC.
+Serves the endpoints consumed by the React frontend (axios).
 
-Rodar:  uvicorn main:app --reload --port 8200
+Run:  uvicorn main:app --reload --port 8200
 """
 
 import os
@@ -11,7 +11,7 @@ import uuid
 import warnings
 from dotenv import load_dotenv
 
-# Carrega .env da raiz do projeto (um nível acima de backend/)
+# Load the .env at the project root (one level above backend/)
 load_dotenv(os.path.join(os.path.dirname(__file__), "..", ".env"), override=True)
 warnings.filterwarnings("ignore")
 
@@ -25,7 +25,7 @@ from reviews import summarize_reviews
 
 app = FastAPI(title="Search × Vector POC API", version="1.0")
 
-# Origens liberadas — configurável via CORS_ORIGINS (lista separada por vírgula)
+# Allowed origins — configurable via CORS_ORIGINS (comma-separated list)
 _origins = os.getenv("CORS_ORIGINS", "http://localhost:5273,http://127.0.0.1:5273").split(",")
 app.add_middleware(
     CORSMiddleware,
@@ -35,7 +35,7 @@ app.add_middleware(
 )
 
 
-# ── Modelos ──────────────────────────────────────────────────────────────────
+# ── Request models ───────────────────────────────────────────────────────────
 class SearchReq(BaseModel):
     query: str = Field(..., min_length=1, max_length=500)
     categorias: list[str] | None = None
@@ -66,7 +66,7 @@ class ReviewsReq(BaseModel):
     query: str = Field(..., min_length=1, max_length=500)
 
 
-# ── Rotas ────────────────────────────────────────────────────────────────────
+# ── Routes ───────────────────────────────────────────────────────────────────
 @app.get("/health")
 def health():
     return {"status": "ok", "db": atlas.DB_NAME}
@@ -103,7 +103,7 @@ def hybrid(req: HybridReq):
 
 @app.post("/hybrid-native")
 def hybrid_native(req: CompareReq):
-    """Hybrid search com o stage NATIVO $rankFusion (8.1+), fallback p/ RRF em 8.0."""
+    """Hybrid search using the NATIVE $rankFusion stage (8.1+), with an RRF fallback on 8.0."""
     return atlas.hybrid_native(req.query)
 
 @app.post("/agent")
@@ -113,7 +113,7 @@ def agent_route(req: AgentReq):
     out["thread_id"] = thread_id
     return out
 
-# O $facet do analytics samplea 12k docs — caro p/ repetir a cada refresh; cache de 5 min
+# The analytics $facet samples 12k docs — costly to repeat on every refresh; cache for 5 min
 _analytics_cache = {"data": None, "ts": 0.0}
 
 @app.get("/analytics")
@@ -121,7 +121,7 @@ def analytics():
     if _analytics_cache["data"] is None or time.time() - _analytics_cache["ts"] > 300:
         data = atlas.get_analytics()
         if isinstance(data, dict) and data.get("error"):
-            return data  # erro não entra no cache
+            return data  # do not cache errors
         _analytics_cache["data"] = data
         _analytics_cache["ts"] = time.time()
     return _analytics_cache["data"]

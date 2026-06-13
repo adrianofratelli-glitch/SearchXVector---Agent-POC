@@ -14,7 +14,7 @@ load_dotenv(override=True)
 MONGODB_URI = os.getenv("MONGODB_URI")
 DB_NAME     = os.getenv("DB_NAME")
 
-# Config por collection
+# Per-collection config
 COLLECTIONS = {
     "💳 Transações": {
         "collection":    "transacoes",
@@ -183,7 +183,7 @@ tab_search, tab_compare, tab_agent = st.tabs([
 ])
 
 # ═══════════════════════════════════════════════════════════════════
-# Tab 1: Atlas Search (Transações + Faturas)
+# Tab 1: Atlas Search (transacoes + fatura collections)
 # ═══════════════════════════════════════════════════════════════════
 with tab_search:
     st.subheader("Busca Inteligente em Transações e Faturas")
@@ -243,7 +243,7 @@ with tab_search:
         seg_raw    = st.selectbox("Filtrar segmento", seg_options)
         seg_filter = seg_raw.split(" ")[0] if seg_raw != "Todos" else "Todos"
 
-        # ── Busca principal ──
+        # ── Main search ──
         project_fields = {
             cfg["desc_field"]: 1, cfg["amount_field"]: 1,
             cfg["cat_field"]: 1, "segmento": 1,

@@ -1,7 +1,7 @@
 """
-atlas.py — Camada de acesso ao MongoDB Atlas.
-Pipelines de Atlas Search, Vector Search, Hybrid RRF e facets,
-expostos como funções puras para a API FastAPI.
+atlas.py — MongoDB Atlas data-access layer.
+Atlas Search, Vector Search, Hybrid RRF, and facet pipelines,
+exposed as pure functions for the FastAPI layer.
 """
 
 import os
@@ -10,7 +10,7 @@ from pymongo import MongoClient
 from pymongo.errors import PyMongoError, ExecutionTimeout
 from dotenv import load_dotenv
 
-# Carrega .env da raiz do projeto (autossuficiente — não depende do main.py)
+# Load the .env at the project root (self-contained — does not depend on main.py)
 load_dotenv(os.path.join(os.path.dirname(__file__), "..", ".env"), override=False)
 
 MONGODB_URI = os.getenv("MONGODB_URI")
@@ -18,12 +18,12 @@ DB_NAME     = os.getenv("DB_NAME", "POC")
 QUERY_TIMEOUT_MS = 10_000
 
 _client = MongoClient(MONGODB_URI, serverSelectionTimeoutMS=5000)
-db = _client[DB_NAME]  # conexão lazy — só conecta de fato na 1ª query
+db = _client[DB_NAME]  # lazy connection — only connects on the first query
 
 
-# ── Helper de execução segura ────────────────────────────────────────────────
+# ── Safe execution helper ────────────────────────────────────────────────────
 def safe_aggregate(collection: str, pipeline: list):
-    """Executa aggregate com tratamento de erro amigável. Retorna (results, error)."""
+    """Run an aggregate with friendly error handling. Returns (results, error)."""
     try:
         return list(db[collection].aggregate(pipeline, maxTimeMS=QUERY_TIMEOUT_MS)), None
     except ExecutionTimeout:
@@ -33,13 +33,13 @@ def safe_aggregate(collection: str, pipeline: list):
         if "index not found" in msg.lower() or "no such index" in msg.lower():
             return None, "Índice não encontrado. Verifique se o Search/Vector index está READY no Atlas."
         if "synonym" in msg.lower():
-            return None, "synonym-analyzer"  # sinalizador para fallback gracioso
+            return None, "synonym-analyzer"  # flag for graceful fallback
         return None, msg
     except Exception as e:
         return None, str(e)
 
 
-# ── Stats das collections ────────────────────────────────────────────────────
+# ── Collection stats ─────────────────────────────────────────────────────────
 def get_stats() -> dict:
     out = {}
     for c in ["produtos", "produtos_vector", "avaliacoes"]:
@@ -52,7 +52,7 @@ def get_stats() -> dict:
 
 # ── Analytics — Aggregation Framework ($facet) ───────────────────────────────
 def get_analytics() -> dict:
-    """Um único $facet roda vários agregados em paralelo no servidor."""
+    """A single $facet runs several aggregations in parallel on the server."""
     pipeline = [
         {"$facet": {
             "por_categoria": [
@@ -88,7 +88,7 @@ def get_analytics() -> dict:
             ],
         }},
     ]
-    # roda sobre uma amostra representativa (5M docs no full scan seria lento)
+    # Run over a representative sample (a full scan over millions of docs would be slow)
     sample_pipeline = [{"$sample": {"size": 12000}}] + pipeline
     t0 = time.time()
     try:
@@ -117,13 +117,13 @@ def get_analytics() -> dict:
     }
 
 
-# ── Recomendações — Vector "more like this" com PRE-FILTERING ─────────────────
+# ── Recommendations — Vector "more like this" with PRE-FILTERING ──────────────
 def find_similar(produto_id: str = None, nome: str = None, same_category: bool = True) -> dict:
-    """Produtos semanticamente similares (autoEmbed). Demonstra VECTOR PRE-FILTERING:
-    o filtro (categoria / em_estoque) roda DENTRO do $vectorSearch — semântico +
-    estruturado numa única operação, sem pós-filtro na aplicação."""
-    # Acha o produto base via Atlas Search (indexado) — NÃO via $match em campo
-    # sem índice (que causaria collscan em 5M docs e timeout).
+    """Semantically similar products (autoEmbed). Demonstrates VECTOR PRE-FILTERING:
+    the filter (category / in-stock) runs INSIDE $vectorSearch — semantic plus
+    structured filtering in a single operation, with no application-side post-filter."""
+    # Find the base product via Atlas Search (indexed) — NOT via a $match on an
+    # unindexed field, which would trigger a collection scan over millions of docs.
     if produto_id:
         base, err = safe_aggregate("produtos", [
             {"$match": {"produto_id": produto_id}}, {"$limit": 1},
@@ -140,10 +140,10 @@ def find_similar(produto_id: str = None, nome: str = None, same_category: bool =
         return {"error": err or "Produto não encontrado", "base": None, "similares": []}
     b = base[0]
 
-    # Vector search pelo significado da descrição do produto base.
-    # PRE-FILTERING NATIVO: o filtro (categoria + em_estoque) roda DENTRO do
-    # $vectorSearch — o índice indexa esses campos como `filter`. Semântico +
-    # estruturado numa única operação, sem pós-filtro na aplicação.
+    # Vector search on the meaning of the base product's description.
+    # NATIVE PRE-FILTERING: the filter (category + in-stock) runs INSIDE
+    # $vectorSearch — the index stores those fields as `filter`. Semantic plus
+    # structured filtering in a single operation, with no application-side post-filter.
     vector_stage = {"$vectorSearch": {
         "index": "produtos_vector", "path": "descricao",
         "query": b.get("descricao", b["nome"]),
@@ -166,17 +166,17 @@ def find_similar(produto_id: str = None, nome: str = None, same_category: bool =
     return {"base": b, "similares": similares, "filtered": same_category}
 
 
-# ── Reviews de um produto (p/ RAG) ───────────────────────────────────────────
-# Apenas ~100 produtos têm avaliações. Cacheamos o catálogo desses produtos
-# (id + nome + categoria) uma vez, e a busca de reviews escolhe sempre um
-# produto QUE TEM reviews — garante que a demo nunca cai em "0 avaliações".
+# ── Product reviews (for RAG) ────────────────────────────────────────────────
+# Only a small subset of products has reviews. Cache that subset's catalog
+# (id + name + category) once, so review lookups always land on a product that
+# HAS reviews — this keeps the demo from ever hitting an empty "0 reviews" state.
 _reviewed_catalog = None
 
 def _get_reviewed_catalog():
     global _reviewed_catalog
     if _reviewed_catalog is None:
         try:
-            # distinct usa o índice em produto_id → ~0.2s (vs $group que faz scan)
+            # distinct uses the produto_id index (~0.2s) instead of a $group scan
             id_list = db["avaliacoes"].distinct("produto_id")
         except Exception:
             id_list = []
@@ -190,13 +190,13 @@ def _get_reviewed_catalog():
 
 
 def get_product_and_reviews(query: str, n_reviews: int = 8) -> dict:
-    """Acha o produto mais relevante QUE TEM reviews e puxa as avaliações (top por utilidade)."""
+    """Find the most relevant product THAT HAS reviews and fetch them (top by helpfulness)."""
     catalog = _get_reviewed_catalog()
     if not catalog:
         return {"error": "Nenhum produto com avaliações", "produto": None, "reviews": []}
 
-    # match por relevância textual simples dentro do catálogo avaliado (case-insensitive,
-    # por tokens do nome/marca/categoria) — garante que o produto escolhido tem reviews
+    # Simple text-relevance match within the reviewed catalog (case-insensitive,
+    # by name/brand/category tokens) — guarantees the chosen product has reviews
     q = query.lower().strip()
     tokens = [t for t in q.split() if len(t) > 2]
     def score(p):
@@ -218,10 +218,10 @@ def get_product_and_reviews(query: str, n_reviews: int = 8) -> dict:
     return {"produto": produto, "reviews": reviews or []}
 
 
-# ── Atlas Search (Tab 1) ─────────────────────────────────────────────────────
-# Score por SINAIS DE NEGÓCIO: multiplica a relevância textual pela nota do
-# produto (avaliacao_media). Produtos bem avaliados sobem no ranking — tuning de
-# relevância de e-commerce controlado por regra de negócio, não só por texto.
+# ── Atlas Search (tab 1) ─────────────────────────────────────────────────────
+# BUSINESS-SIGNAL scoring: multiply text relevance by the product rating
+# (avaliacao_media). Well-rated products rank higher — e-commerce relevance
+# tuning driven by a business rule, not text relevance alone.
 def _business_score() -> dict:
     return {"function": {
         "multiply": [
@@ -255,7 +255,7 @@ def build_search_pipeline(search_op: dict, mql_filter: dict) -> list:
             **search_op,
             "count": {"type": "total"},
             "highlight": {"path": ["nome", "descricao"], "maxCharsToExamine": 500, "maxNumPassages": 1},
-            "scoreDetails": True,   # transparência: POR QUE este produto rankeou aqui
+            "scoreDetails": True,   # transparency: WHY this product ranked where it did
         }},
         {"$match": mql_filter},
         {"$limit": 50},
@@ -335,7 +335,7 @@ def search_facets(query: str, with_synonyms=False) -> dict:
     }
 
 
-# ── Search vs Vector vs RRF (Tab 2) ──────────────────────────────────────────
+# ── Search vs Vector vs RRF (tab 2) ──────────────────────────────────────────
 def compare_search_vector(query: str) -> dict:
     search_pipeline = [
         {"$search": {"index": "produtos_search", "phrase": {"query": query, "path": "nome"}}},
@@ -355,7 +355,7 @@ def compare_search_vector(query: str) -> dict:
     vec_res,  err_v = safe_aggregate("produtos_vector", vector_pipeline)
     elapsed = (time.time() - t0) * 1000
 
-    # RRF (k=60) com dedup por nome
+    # RRF (k=60) with dedup by name
     rrf_map, seen_s, seen_v = {}, set(), set()
     for rank, doc in enumerate(text_res or []):
         k = doc["nome"]
@@ -386,7 +386,7 @@ def compare_search_vector(query: str) -> dict:
     }
 
 
-# ── Hybrid RRF tunável (Tab 3) ───────────────────────────────────────────────
+# ── Tunable Hybrid RRF (tab 3) ───────────────────────────────────────────────
 def hybrid_rrf(query: str, k=60, n_search=20, n_vector=20) -> dict:
     s_pipe = [
         {"$search": {"index": "produtos_search", "compound": {"should": [
@@ -450,10 +450,10 @@ def hybrid_rrf(query: str, k=60, n_search=20, n_vector=20) -> dict:
     }
 
 
-# ── Hybrid via $rankFusion NATIVO (MongoDB 8.1+) — com fallback gracioso ──────
+# ── Hybrid via NATIVE $rankFusion (MongoDB 8.1+) — with graceful fallback ─────
 def hybrid_native(query: str, limit: int = 20) -> dict:
-    """Faz hybrid search com o stage NATIVO $rankFusion (server-side, sem RRF na
-    aplicação). Requer MongoDB 8.1+. Em 8.0 cai no fallback Python e sinaliza isso."""
+    """Hybrid search using the NATIVE $rankFusion stage (server-side, no application
+    RRF). Requires MongoDB 8.1+. On 8.0 it falls back to the Python RRF and flags it."""
     pipeline = [
         {"$rankFusion": {
             "input": {"pipelines": {
@@ -480,7 +480,7 @@ def hybrid_native(query: str, limit: int = 20) -> dict:
     elapsed = (time.time() - t0) * 1000
 
     if err:
-        # 8.0 não tem $rankFusion → usa o RRF manual e sinaliza fallback
+        # 8.0 has no $rankFusion → fall back to the manual RRF and flag it
         fb = hybrid_rrf(query, k=60, n_search=limit, n_vector=limit)
         return {
             "native": False,

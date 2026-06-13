@@ -96,7 +96,7 @@ export default function HybridRRF() {
           </div>
           <ProductTable rows={data.fused} columns={cols} />
 
-          {/* Mini chart de scores */}
+          {/* Mini score chart */}
           <Subtitle style={{ color: T.text, margin: "20px 0 10px", fontSize: 14 }}>Score por produto — Top 10</Subtitle>
           {data.fused.slice(0, 10).map((x, i) => {
             const max = Math.max(...data.fused.map((f) => f.rrf)) || 1;

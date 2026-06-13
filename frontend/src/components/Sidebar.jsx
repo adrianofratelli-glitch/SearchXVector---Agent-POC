@@ -84,7 +84,7 @@ export default function Sidebar({ active, onSelect, stats, offline = false }) {
         </div>
       ))}
 
-      {/* Índices */}
+      {/* Indexes */}
       <Overline style={{ color: T.text3, margin: "12px 0 8px", letterSpacing: "0.16em" }}>Índices Ativos</Overline>
       {indices.map((idx) => (
         <div key={idx.name} style={{

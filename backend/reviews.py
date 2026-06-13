@@ -1,6 +1,7 @@
 """
-reviews.py — RAG sobre avaliações reais.
-Acha o produto, puxa reviews do MongoDB e o LLM resume com citações.
+reviews.py — RAG over real product reviews.
+Finds the product, pulls its reviews from MongoDB, and the LLM summarizes them.
+The prompt is kept in Portuguese on purpose, since the summary is shown in the UI.
 """
 
 from langchain_anthropic import ChatAnthropic

@@ -1,10 +1,10 @@
 import { palette } from "@leafygreen-ui/palette";
 
-// Paleta no estilo da pitch five-pillar (MongoDB Atlas dark)
+// Palette in the five-pillar pitch style (MongoDB Atlas dark)
 export const T = {
-  bg:        palette.black,            // #001E2B — fundo Atlas dark
-  surface:   "#002838",                // bg-secondary — painéis
-  surface2:  "#003345",                // bg-card — superfícies elevadas
+  bg:        palette.black,            // #001E2B — Atlas dark background
+  surface:   "#002838",                // bg-secondary — panels
+  surface2:  "#003345",                // bg-card — elevated surfaces
   sidebar:   "#00141C",
   border:    "rgba(255,255,255,0.06)", // border-subtle
   borderSub: "rgba(255,255,255,0.06)",
@@ -12,9 +12,9 @@ export const T = {
 
   green:     palette.green.base,       // #00ED64
   greenDark: palette.green.dark1,
-  blue:      "#06b6d4",                // cyan da pitch
+  blue:      "#06b6d4",                // pitch cyan
   purple:    "#a855f7",
-  yellow:    "#f97316",                // orange da pitch
+  yellow:    "#f97316",                // pitch orange
   teal:      "#14b8a6",
   red:       "#FF6960",
 
@@ -22,7 +22,7 @@ export const T = {
   text2:     "#b8d8e8",
   text3:     "#7fa8bc",
 
-  codeBg:    "#0a1628",                // fundo dos blocos de código
+  codeBg:    "#0a1628",                // code-block background
 
   font: "'Outfit', 'Helvetica Neue', Arial, sans-serif",
   mono: "'JetBrains Mono', Menlo, monospace",

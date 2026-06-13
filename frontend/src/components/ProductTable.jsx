@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { T, fmtBRL } from "../theme";
 
-// Tabela de produtos consistente, usada em todas as abas
+// Shared product results table, used across all tabs
 export default function ProductTable({ rows, columns }) {
   if (!rows || rows.length === 0) {
     return <div style={{ color: T.text3, fontSize: 13, padding: "12px 4px" }}>Sem resultados.</div>;
@@ -46,7 +46,7 @@ export function priceCol() {
 export function MqlBlock({ pipeline, collection }) {
   const [copied, setCopied] = useState(false);
   const copy = (e) => {
-    e.preventDefault(); // não abre/fecha o <details>
+    e.preventDefault(); // don't toggle the <details>
     navigator.clipboard.writeText(JSON.stringify(pipeline, null, 2));
     setCopied(true);
     setTimeout(() => setCopied(false), 1600);

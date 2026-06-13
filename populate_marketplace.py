@@ -1,27 +1,28 @@
 """
 populate_marketplace.py
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Script genérico para popular a POC MongoDB Atlas com dados de
-catálogo de marketplace (estilo Mercado Livre / Shopee).
+Seeds the MongoDB Atlas POC with a marketplace catalog dataset
+(Mercado Livre / Shopee style). The seed content is in Portuguese,
+matching the demo's Brazilian audience.
 
-Desenhado para demonstrar ao máximo cada engine:
-  • Atlas Search  → autocomplete, fuzzy, facets, highlight em `nome` e `descricao`
-  • Vector Search → busca semântica via autoEmbed (voyage-4) em `descricao`
-  • Hybrid RRF    → combina textual + semântico no app
-  • AI Agent      → busca, agrega, compara, recomenda via ferramentas MongoDB
+Designed to exercise every engine:
+  • Atlas Search  → autocomplete, fuzzy, facets, highlighting on `nome` and `descricao`
+  • Vector Search → semantic search via autoEmbed (voyage-4) on `descricao`
+  • Hybrid RRF    → combines lexical and semantic in the app
+  • AI Agent      → searches, aggregates, compares, recommends via MongoDB tools
 
-O campo `descricao` é o coração da demo: texto natural rico (~200 palavras)
-com contexto de uso, público-alvo e benefícios — o que faz o Vector Search
-encontrar resultados onde o Atlas Search retorna zero.
+The `descricao` field is the core of the demo: rich natural-language text
+(~200 words) with usage context, target audience, and benefits — which is what
+lets Vector Search find results where Atlas Search returns nothing.
 
-Collections criadas:
-  • produtos          → volume principal (20M docs) — Atlas Search + MQL
-  • produtos_vector   → subset semântico (500K docs) — Vector Search autoEmbed
-  • avaliacoes        → reviews dos produtos (5M docs) — enriquece o Agent
+Collections created:
+  • produtos          → main volume — Atlas Search + MQL
+  • produtos_vector   → semantic subset — Vector Search autoEmbed
+  • avaliacoes        → product reviews — enriches the agent
 
-Uso:
+Usage:
   python populate_marketplace.py
-  TOTAL_DOCS=2000000 DB_NAME=cliente_poc python populate_marketplace.py
+  TOTAL_DOCS=2000000 DB_NAME=client_poc python populate_marketplace.py
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 """
 
@@ -34,7 +35,7 @@ from pymongo import MongoClient, ASCENDING, DESCENDING, TEXT
 from pymongo.errors import BulkWriteError
 
 # ══════════════════════════════════════════════════════════════════════
-# CONFIGURAÇÕES
+# CONFIGURATION
 # ══════════════════════════════════════════════════════════════════════
 
 MONGODB_URI           = os.getenv("MONGODB_URI", "mongodb+srv://<user>:<password>@<cluster>.mongodb.net/")
@@ -52,8 +53,8 @@ COL_PRODUTOS_VECTOR = "produtos_vector"
 COL_AVALIACOES      = "avaliacoes"
 
 # ══════════════════════════════════════════════════════════════════════
-# CATÁLOGO DE PRODUTOS
-# Estrutura: categoria → subcategoria → [(marca, modelo, preco_base)]
+# PRODUCT CATALOG (Portuguese seed content)
+# Structure: category → subcategory → [(brand, model, base_price)]
 # ══════════════════════════════════════════════════════════════════════
 
 CATALOGO = {
@@ -282,11 +283,11 @@ CATALOGO = {
 }
 
 # ══════════════════════════════════════════════════════════════════════
-# TEMPLATES DE DESCRIÇÃO
-# A chave do Vector Search — linguagem natural rica com:
-# - Contexto de uso (sem repetir o nome da query)
-# - Público-alvo implícito
-# - Benefícios funcionais
+# DESCRIPTION TEMPLATES (Portuguese seed content)
+# The key to Vector Search — rich natural language with:
+# - Usage context (without repeating the query term)
+# - Implicit target audience
+# - Functional benefits
 # ══════════════════════════════════════════════════════════════════════
 
 DESC_TEMPLATES = {
@@ -436,7 +437,7 @@ TITULOS_AVALIACAO = [
 ]
 
 # ══════════════════════════════════════════════════════════════════════
-# GERAÇÃO DE DOCUMENTOS
+# DOCUMENT GENERATION
 # ══════════════════════════════════════════════════════════════════════
 
 def get_descricao(subcategoria: str, marca: str, modelo: str) -> str:
@@ -509,14 +510,14 @@ def make_avaliacao(produto_id: str, categoria: str) -> dict:
         "data":       random_date(),
     }
 
-# Pool de categorias achatado para sampling rápido
+# Flattened category pool for fast sampling
 ALL_ITEMS = []
 for cat, subcats in CATALOGO.items():
     for sub in subcats:
         ALL_ITEMS.append((cat, sub))
 
 # ══════════════════════════════════════════════════════════════════════
-# PROGRESS & INSERÇÃO
+# PROGRESS & INSERTION
 # ══════════════════════════════════════════════════════════════════════
 
 def progress_bar(current, total, start_ts, bar_width=38, label=""):
@@ -545,7 +546,7 @@ def populate_produtos(db, total):
     inserted, start_ts = 0, time.time()
     print(f"\n  ▶ {COL_PRODUTOS} — {total:,} docs\n")
 
-    # Guarda produto_ids para usar nas avaliações
+    # Keep product_ids to reuse when generating reviews
     sample_ids = []
 
     while inserted < total:
@@ -555,7 +556,7 @@ def populate_produtos(db, total):
             cat, sub = random.choice(ALL_ITEMS)
             doc = make_produto(cat, sub)
             batch.append(doc)
-            # Coleta ~2% dos ids para avaliacoes
+            # Collect ~2% of the ids for reviews
             if len(sample_ids) < 200_000 and random.random() < 0.02:
                 sample_ids.append((doc["produto_id"], doc["categoria"]))
         insert_bulk(col, batch)
@@ -601,7 +602,7 @@ def populate_avaliacoes(db, produto_ids: list):
     print(f"\n  ✅ {COL_AVALIACOES} — {inserted:,} em {elapsed:.1f}s\n")
 
 def create_indexes(db):
-    print("\n  ▶ Criando índices regulares...")
+    print("\n  ▶ Creating regular indexes...")
 
     p = db[COL_PRODUTOS]
     p.create_index([("categoria", ASCENDING)])
@@ -613,37 +614,37 @@ def create_indexes(db):
     p.create_index([("categoria", ASCENDING), ("preco", ASCENDING)])
     p.create_index([("marca", ASCENDING), ("avaliacao_media", DESCENDING)])
     p.create_index([("categoria", ASCENDING), ("avaliacao_media", DESCENDING), ("preco", ASCENDING)])
-    print(f"    ✅ {COL_PRODUTOS} — 9 índices")
+    print(f"    ✅ {COL_PRODUTOS} — 9 indexes")
 
     pv = db[COL_PRODUTOS_VECTOR]
     pv.create_index([("categoria", ASCENDING)])
     pv.create_index([("preco", ASCENDING)])
-    print(f"    ✅ {COL_PRODUTOS_VECTOR} — 2 índices")
+    print(f"    ✅ {COL_PRODUTOS_VECTOR} — 2 indexes")
 
     av = db[COL_AVALIACOES]
     av.create_index([("produto_id", ASCENDING)])
     av.create_index([("categoria", ASCENDING)])
     av.create_index([("nota", ASCENDING)])
     av.create_index([("data", DESCENDING)])
-    print(f"    ✅ {COL_AVALIACOES} — 4 índices\n")
+    print(f"    ✅ {COL_AVALIACOES} — 4 indexes\n")
 
 # ══════════════════════════════════════════════════════════════════════
-# INSTRUÇÕES ATLAS UI
+# ATLAS UI INSTRUCTIONS
 # ══════════════════════════════════════════════════════════════════════
 
 def print_atlas_instructions():
     print(f"""
 ╔══════════════════════════════════════════════════════════════════════════╗
-║   PRÓXIMOS PASSOS — Atlas UI                                             ║
+║   NEXT STEPS — Atlas UI                                                  ║
 ╚══════════════════════════════════════════════════════════════════════════╝
 
 Database: {DB_NAME}
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-1️⃣  ATLAS SEARCH — collection: {COL_PRODUTOS}
+1.  ATLAS SEARCH — collection: {COL_PRODUTOS}
     UI → Atlas Search → Create Search Index → JSON Editor
-    Nome: produtos_search
+    Name: produtos_search
 
 {{
   "mappings": {{
@@ -680,9 +681,9 @@ Database: {DB_NAME}
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-2️⃣  VECTOR SEARCH — collection: {COL_PRODUTOS_VECTOR}
+2.  VECTOR SEARCH — collection: {COL_PRODUTOS_VECTOR}
     UI → Atlas Search → Create Search Index → JSON Editor
-    Nome: produtos_vector
+    Name: produtos_vector
 
 {{
   "fields": [
@@ -713,14 +714,14 @@ Database: {DB_NAME}
   ]
 }}
 
-  ⚠️  Requer VoyageAI integrado ao Atlas (Atlas UI → Integrations)
-  ⚠️  Build do índice vetorial: ~30-50min para 500K docs
+  ⚠️  Requires Voyage AI integrated with Atlas (Atlas UI → Integrations)
+  ⚠️  Vector index build: ~30-50 min for 500K docs
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-3️⃣  SINÔNIMOS (opcional — turbo no fuzzy search)
-    Crie a collection: sinonimos
-    Insira os documentos abaixo:
+3.  SYNONYMS (optional — improves fuzzy search)
+    Create the collection: sinonimos
+    Insert the documents below (Portuguese synonyms):
 
 {{ "mappingType": "equivalent", "synonyms": ["notebook", "computador", "laptop", "máquina"] }}
 {{ "mappingType": "equivalent", "synonyms": ["fone", "headphone", "headset", "auricular", "earphone"] }}
@@ -732,25 +733,25 @@ Database: {DB_NAME}
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-4️⃣  QUERIES DE DEMO PRONTAS
+4.  READY-TO-USE DEMO QUERIES (in Portuguese, typed into the UI)
 
-  ─ Gap textual vs semântico (o momento WOW da demo):
+  - Lexical vs semantic gap (the standout moment of the demo):
     Query: "academia em casa"
-    Atlas Search → 0 resultados (palavras não existem nos docs)
+    Atlas Search → 0 results (the words do not appear in the docs)
     Vector Search → halteres, colchonete, whey, kettlebell, elástico
 
     Query: "presente para o dia dos pais"
-    Atlas Search → 0 resultados
+    Atlas Search → 0 results
     Vector Search → perfumes, relógios, ração premium, livros de negócios
 
     Query: "proteção solar para o rosto"
-    Atlas Search → 0 resultados
+    Atlas Search → 0 results
     Vector Search → protetor solar, hidratante com FPS, base com proteção
 
-  ─ Fuzzy (tolerância a erros):
+  - Fuzzy (typo tolerance):
     "samsumg" → Samsung | "adidass" → Adidas | "notebokk" → notebook
 
-  ─ Agent (missão completa):
+  - Agent (end-to-end):
     "Me recomende um notebook para programação até R$ 3.000"
     "Compare os melhores smartphones Samsung vs Apple"
     "Quais são os produtos mais bem avaliados na categoria Esportes?"
@@ -787,10 +788,10 @@ if __name__ == "__main__":
     db     = client[DB_NAME]
 
     if DROP_BEFORE_POPULATE:
-        print("\n  ⚠  Dropando collections existentes...")
+        print("\n  ⚠  Dropping existing collections...")
         for c in [COL_PRODUTOS, COL_PRODUTOS_VECTOR, COL_AVALIACOES]:
             db[c].drop()
-        print("  ✅ Drop concluído")
+        print("  ✅ Drop complete")
 
     t0 = time.time()
 
@@ -803,7 +804,7 @@ if __name__ == "__main__":
     elapsed    = time.time() - t0
 
     print(f"\n{'='*72}")
-    print(f"  ✅  {total_docs:,} docs inseridos em {elapsed/60:.1f} min")
+    print(f"  ✅  {total_docs:,} docs inserted in {elapsed/60:.1f} min")
     print(f"{'='*72}")
 
     print_atlas_instructions()

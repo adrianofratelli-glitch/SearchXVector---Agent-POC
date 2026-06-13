@@ -57,7 +57,7 @@ export default function ReviewsRag() {
 
       {data?.produto && (
         <div style={{ display: "grid", gridTemplateColumns: "3fr 2fr", gap: 20 }}>
-          {/* Resumo do LLM */}
+          {/* LLM summary */}
           <div>
             <div style={{ background: T.surface, border: `1px solid ${T.border}`, borderRadius: 10, padding: "16px 20px" }}>
               <div style={{ fontSize: 16, fontWeight: 700, color: T.text, marginBottom: 4 }}>{data.produto.nome}</div>
@@ -72,7 +72,7 @@ export default function ReviewsRag() {
             </div>
           </div>
 
-          {/* Reviews reais */}
+          {/* Real reviews */}
           <div>
             <Subtitle style={{ color: T.text, fontSize: 13, marginBottom: 10 }}>Avaliações usadas (top por utilidade)</Subtitle>
             {(data.reviews || []).slice(0, 6).map((r, i) => (

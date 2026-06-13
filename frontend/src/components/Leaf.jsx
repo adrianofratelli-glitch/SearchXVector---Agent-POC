@@ -1,4 +1,4 @@
-// Logo folha MongoDB de duas tonalidades
+// Two-tone MongoDB leaf logo
 export default function Leaf({ size = 26 }) {
   const h = (size / 26) * 30;
   return (

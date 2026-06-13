@@ -9,7 +9,7 @@ import { search } from "../api";
 import { T, fmtBRL } from "../theme";
 import ProductTable, { priceCol, MqlBlock } from "../components/ProductTable";
 
-// destaca o prefixo digitado (demonstra autocomplete)
+// highlight the typed prefix (demonstrates autocomplete)
 function highlight(text, q) {
   if (!text || !q) return text;
   const i = text.toLowerCase().indexOf(q.toLowerCase());

@@ -47,7 +47,7 @@ export default function Analytics() {
         <span style={{ color: T.text3, fontSize: 12 }}> · amostra de {(data.geral?.amostra || 0).toLocaleString("pt-BR")} docs</span>
       </Body>
 
-      {/* KPIs gerais */}
+      {/* Overview KPIs */}
       <div style={{ display: "flex", gap: 14, margin: "14px 0 22px" }}>
         {[
           ["Preço médio", fmtBRL(data.geral?.preco_medio), T.green],

@@ -70,7 +70,7 @@ export default function App() {
             </div>
           )}
 
-          {/* KPIs — stat-bar segmentada, estilo pitch */}
+          {/* KPIs — segmented stat-bar, pitch style */}
           <div className="stat-bar" style={{ marginBottom: 22 }}>
             <KpiCard label="Documentos" value={fmtCount(c.produtos)} sub="produtos indexados" color="green" />
             <KpiCard label="Vetores Indexados" value={fmtCount(c.produtos_vector)} sub="embeddings · voyage-4" color="blue" />

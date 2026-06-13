@@ -1,73 +1,78 @@
-# Frontend — Search × Vector (React + LeafyGreen)
+# Frontend — Search & Vector (React + LeafyGreen)
 
-Interface da POC construída com **React 18 + Vite** e os componentes oficiais da MongoDB
-(**LeafyGreen**), consumindo o backend FastAPI via **axios**.
+The POC interface, built with React 18 and Vite using MongoDB's official
+component library (LeafyGreen), consuming the FastAPI backend over axios.
 
 ## Stack
 
-| Camada | Tecnologia |
-|---|---|
-| UI framework | React 18 + Vite |
-| Componentes | `@leafygreen-ui/*` (design system oficial MongoDB) |
-| Fontes | Euclid Circular A + MongoDB Value Serif (CDN MongoDB) |
-| HTTP | axios |
-| Polyfills | `vite-plugin-node-polyfills` (Buffer/process p/ deps do LeafyGreen) |
+| Layer        | Technology                                                       |
+|--------------|------------------------------------------------------------------|
+| UI framework | React 18 + Vite                                                  |
+| Components   | `@leafygreen-ui/*` (MongoDB design system)                       |
+| Typography   | Outfit + JetBrains Mono (Google Fonts)                           |
+| HTTP         | axios                                                            |
+| Polyfills    | `vite-plugin-node-polyfills` (Buffer/process for LeafyGreen deps)|
 
-## Pré-requisitos
+## Prerequisites
 
-- Node 18+ (testado em Node 18–26)
-- Backend rodando (ver `../backend/README.md`)
+- Node 18+ (tested on Node 18–26)
+- Backend running (see [`../backend/README.md`](../backend/README.md))
 
-## Atalho (sobe backend + frontend juntos)
+## Run with the backend
 
-Na raiz do projeto:
+From the repository root:
 
 ```bash
-bash start.sh        # sobe FastAPI :8000 + Vite :5173 e valida ambos
+bash start.sh        # Starts FastAPI :8200 and Vite :5273, then verifies both
 ```
 
-## Setup manual (só frontend)
+## Run the frontend only
 
 ```bash
 npm install
-cp .env.example .env        # ajuste VITE_API_URL se o backend não estiver em localhost:8000
-npm run dev                 # http://localhost:5173
+cp .env.example .env        # Set VITE_API_URL if the backend is not on localhost:8200
+npm run dev                 # http://localhost:5273
 ```
 
-## Variáveis de ambiente
+## Environment variables
 
-| Variável | Default | Descrição |
-|---|---|---|
-| `VITE_API_URL` | `http://localhost:8000` | URL base do backend FastAPI |
+| Variable       | Default                   | Description                  |
+|----------------|---------------------------|------------------------------|
+| `VITE_API_URL` | `http://localhost:8200`   | FastAPI backend base URL     |
 
-## Estrutura
+## Structure
 
 ```
 src/
-├── api.js                 # cliente axios + endpoints
-├── theme.js               # tokens de cor MongoDB Atlas (LeafyGreen palette)
-├── App.jsx                # LeafyGreenProvider + layout + tabs
+├── api.js                 axios client and endpoints
+├── theme.js               MongoDB Atlas color tokens and formatters
+├── App.jsx                LeafyGreenProvider, layout, and tabs
 ├── components/
-│   ├── Leaf.jsx           # logo folha MongoDB
-│   ├── Sidebar.jsx        # navegação + collections + cluster status
-│   ├── KpiCard.jsx        # card KPI com top-border colorida
-│   └── ProductTable.jsx   # tabela de resultados + bloco MQL
+│   ├── Leaf.jsx           MongoDB leaf logo
+│   ├── Sidebar.jsx        Navigation, collections, cluster status
+│   ├── KpiCard.jsx        Stat-bar segment
+│   └── ProductTable.jsx   Results table and MQL block
 └── tabs/
-    ├── AtlasSearch.jsx    # busca textual (autocomplete, fuzzy, highlight)
-    ├── SearchVsVector.jsx # comparação lado a lado + RRF
-    ├── HybridRRF.jsx      # RRF tunável (sliders) + chart de scores
-    └── AiAgent.jsx        # chat ReAct com trace (tool → MQL → resultado)
+    ├── AtlasSearch.jsx    Full-text search (autocomplete, fuzzy, highlight)
+    ├── SearchVsVector.jsx Lexical vs semantic comparison
+    ├── HybridRRF.jsx      Tunable RRF with a score chart
+    ├── Similares.jsx      Vector "more like this" with pre-filtering
+    ├── Analytics.jsx      $facet aggregations
+    ├── ReviewsRag.jsx     Review retrieval and summarization
+    └── AiAgent.jsx        ReAct chat with a tool → MQL → result trace
 ```
 
-## Notas técnicas
+## Technical notes
 
-- **React 18** (não 19): os componentes LeafyGreen ainda não suportam React 19.
-- **node polyfills**: uma dependência do LeafyGreen usa globais Node (`Buffer`).
-  O `vite-plugin-node-polyfills` resolve — sem ele a tela renderiza em branco.
+- React 18 (not 19): the LeafyGreen components do not yet support React 19.
+- Node polyfills: a LeafyGreen dependency relies on Node globals (`Buffer`).
+  `vite-plugin-node-polyfills` provides them; without it the page renders blank.
+- The UI copy is intentionally in Portuguese, since the demo targets a Brazilian
+  audience.
 
-## Build de produção
+## Production build
 
 ```bash
-npm run build      # gera dist/
-npm run preview    # serve o build localmente
+npm run build      # Outputs to dist/
+npm run preview    # Serves the build locally
 ```

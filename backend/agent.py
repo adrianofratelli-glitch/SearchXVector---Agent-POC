@@ -1,6 +1,8 @@
 """
-agent.py — Agente LangGraph ReAct com 4 ferramentas MongoDB.
-Expõe o trace (tool → MQL → resultado) para o frontend renderizar.
+agent.py — LangGraph ReAct agent with four MongoDB tools.
+Exposes the trace (tool → MQL → result) for the frontend to render.
+The tool docstrings and system prompt stay in Portuguese, since they drive the
+model's tool selection and the language of its answers.
 """
 
 import os
@@ -14,7 +16,7 @@ from atlas import db, safe_aggregate, _client, DB_NAME
 llm = ChatAnthropic(model="claude-sonnet-4-6", temperature=0)
 
 
-# ── Ferramentas ──────────────────────────────────────────────────────────────
+# ── Tools ────────────────────────────────────────────────────────────────────
 @tool
 def busca_semantica(consulta: str) -> str:
     """Busca produtos por similaridade semântica. Use para: 'academia em casa',
@@ -89,7 +91,7 @@ def produtos_por_faixa_preco(categoria: str, preco_min: float, preco_max: float)
         f"- {r['nome']} | R$ {r['preco']:.2f} | ⭐ {r['avaliacao_media']:.1f}" for r in results)
 
 
-# ── Reconstrução de MQL p/ o trace ───────────────────────────────────────────
+# ── MQL reconstruction for the trace ─────────────────────────────────────────
 TOOL_META = {
     "busca_semantica":         {"engine": "Vector Search", "collection": "produtos_vector"},
     "buscar_produto":          {"engine": "Atlas Search",  "collection": "produtos"},
@@ -142,7 +144,7 @@ _agent = create_react_agent(
 
 
 def run_agent(message: str, thread_id: str) -> dict:
-    """Roda o agente e devolve a resposta + trace ReAct estruturado."""
+    """Run the agent and return the answer plus a structured ReAct trace."""
     response = _agent.invoke(
         {"messages": [("human", message)]},
         config={"configurable": {"thread_id": thread_id}},
@@ -152,7 +154,7 @@ def run_agent(message: str, thread_id: str) -> dict:
     if isinstance(answer, list):
         answer = " ".join(b.get("text", "") for b in answer if isinstance(b, dict))
 
-    # Trace: emparelha tool_call → resultado
+    # Trace: pair each tool_call with its result
     pending, trace = {}, []
     for m in msgs:
         for tc in (getattr(m, "tool_calls", None) or []):

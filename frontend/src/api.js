@@ -1,6 +1,6 @@
 import axios from "axios";
 
-// Cliente axios apontando para o backend FastAPI
+// axios client pointing at the FastAPI backend
 const api = axios.create({
   baseURL: import.meta.env.VITE_API_URL || "http://localhost:8200",
   timeout: 60000,
