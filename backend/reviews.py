@@ -31,9 +31,11 @@ def summarize_reviews(query: str) -> dict:
 
     produto = data["produto"]
     reviews = data["reviews"]
+    via = data.get("via")
+    pipeline = data.get("pipeline")
     if not reviews:
         return {"produto": produto, "reviews": [], "summary": "Este produto ainda não tem avaliações.",
-                "nota_media": produto.get("avaliacao_media", 0)}
+                "nota_media": produto.get("avaliacao_media", 0), "via": via, "pipeline": pipeline}
 
     reviews_txt = "\n".join(
         f'[{r["nota"]}★] "{r.get("titulo","")}" — {r.get("texto","")} (útil: {r.get("util_count",0)})'
@@ -51,4 +53,6 @@ def summarize_reviews(query: str) -> dict:
         "reviews": reviews,
         "nota_media": round(sum(notas) / len(notas), 1),
         "total_analisado": len(reviews),
+        "via": via,
+        "pipeline": pipeline,
     }

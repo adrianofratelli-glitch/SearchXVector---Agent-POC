@@ -14,6 +14,14 @@ const SUGGESTIONS = [
   "Compare os melhores tênis de corrida disponíveis",
 ];
 
+// follow-ups that only make sense with memory — demonstrates the MongoDBSaver
+// checkpoints: the agent resolves "deles/o segundo" from the thread history
+const FOLLOW_UPS = [
+  "E qual deles é o mais barato?",
+  "O segundo tem em estoque?",
+  "Tem algo parecido, mas até R$ 1.000?",
+];
+
 const ENGINE_COLOR = { "Vector Search": T.blue, "Atlas Search": T.green, "Aggregation": T.purple };
 
 export default function AiAgent() {
@@ -88,6 +96,16 @@ export default function AiAgent() {
         )}
         <div ref={endRef} />
       </div>
+
+      {/* Memory demo: follow-ups that depend on the previous turn */}
+      {history.length > 0 && !loading && (
+        <div style={{ display: "flex", gap: 8, marginTop: 12, flexWrap: "wrap", alignItems: "center" }}>
+          <span style={{ fontSize: 11, color: T.text3 }}>🧠 Teste a memória:</span>
+          {FOLLOW_UPS.map((s) => (
+            <Button key={s} size="xsmall" variant="default" darkMode onClick={() => send(s)}>{s}</Button>
+          ))}
+        </div>
+      )}
 
       {/* Input */}
       <div style={{ display: "flex", gap: 12, marginTop: 16, alignItems: "flex-end" }}>

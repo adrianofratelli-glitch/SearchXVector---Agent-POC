@@ -592,8 +592,12 @@ def populate_avaliacoes(db, produto_ids: list):
 
     while inserted < total:
         n     = min(BATCH_SIZE, total - inserted)
-        pid, cat = random.choice(produto_ids) if produto_ids else (str(uuid.uuid4()), "Eletrônicos")
-        batch = [make_avaliacao(pid, cat) for _ in range(n)]
+        # pick a product PER REVIEW (a single choice per 10k-batch would
+        # concentrate every review on ~10 products)
+        batch = []
+        for _ in range(n):
+            pid, cat = random.choice(produto_ids) if produto_ids else (str(uuid.uuid4()), "Eletrônicos")
+            batch.append(make_avaliacao(pid, cat))
         insert_bulk(col, batch)
         inserted += n
         progress_bar(inserted, total, start_ts, label=COL_AVALIACOES)
@@ -646,6 +650,10 @@ Database: {DB_NAME}
     UI → Atlas Search → Create Search Index → JSON Editor
     Name: produtos_search
 
+    NOTE the multi-type fields: `token` on categoria and `number` on preco let
+    the app run filters INSIDE $search (compound.filter) so the total count
+    reflects the filters — the *Facet types alone only support faceting.
+
 {{
   "mappings": {{
     "dynamic": false,
@@ -662,11 +670,18 @@ Database: {DB_NAME}
       ],
       "descricao":   {{ "type": "string", "analyzer": "lucene.portuguese" }},
       "marca":       {{ "type": "string" }},
-      "categoria":   {{ "type": "stringFacet" }},
+      "produto_id":  {{ "type": "token" }},
+      "categoria":   [
+        {{ "type": "stringFacet" }},
+        {{ "type": "token" }}
+      ],
       "subcategoria":{{ "type": "stringFacet" }},
       "genero":      {{ "type": "stringFacet" }},
       "em_estoque":  {{ "type": "boolean" }},
-      "preco":       {{ "type": "numberFacet" }},
+      "preco":       [
+        {{ "type": "numberFacet" }},
+        {{ "type": "number" }}
+      ],
       "avaliacao_media": {{ "type": "number" }}
     }}
   }},
@@ -716,6 +731,43 @@ Database: {DB_NAME}
 
   ⚠️  Requires Voyage AI integrated with Atlas (Atlas UI → Integrations)
   ⚠️  Vector index build: ~30-50 min for 500K docs
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+2b. ATLAS SEARCH on the VECTOR collection — collection: {COL_PRODUTOS_VECTOR}
+    UI → Atlas Search → Create Search Index → JSON Editor
+    Name: produtos_vector_search
+
+    WHY: native hybrid search ($rankFusion, MongoDB 8.1+) runs both
+    sub-pipelines against ONE collection, so the lexical index must live on
+    the same collection as the vector index. This also makes the RRF
+    comparisons methodologically honest (same corpus on both sides).
+    The app detects this index automatically — without it, the hybrid tabs
+    fall back to application-side RRF over the two collections.
+
+{{
+  "mappings": {{
+    "dynamic": false,
+    "fields": {{
+      "nome": [
+        {{
+          "type": "autocomplete",
+          "analyzer": "lucene.standard",
+          "tokenization": "edgeGram",
+          "minGrams": 2,
+          "maxGrams": 15
+        }},
+        {{ "type": "string", "analyzer": "lucene.standard" }}
+      ],
+      "descricao":   {{ "type": "string", "analyzer": "lucene.portuguese" }},
+      "marca":       {{ "type": "string" }},
+      "produto_id":  {{ "type": "token" }},
+      "categoria":   {{ "type": "token" }},
+      "em_estoque":  {{ "type": "boolean" }},
+      "preco":       {{ "type": "number" }}
+    }}
+  }}
+}}
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 

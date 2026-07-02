@@ -7,6 +7,7 @@ import Toggle from "@leafygreen-ui/toggle";
 import { H3, Body, Subtitle } from "@leafygreen-ui/typography";
 import { findSimilar } from "../api";
 import { T, fmtBRL } from "../theme";
+import { MqlBlock } from "../components/ProductTable";
 
 export default function Similares() {
   const [nome, setNome] = useState("");
@@ -57,7 +58,11 @@ export default function Similares() {
             <div style={{ fontSize: 16, fontWeight: 700, color: T.text }}>{data.base.nome}</div>
             <div style={{ fontSize: 13, color: T.text2, marginTop: 4 }}>
               <Badge variant="blue">{data.base.categoria}</Badge> · {fmtBRL(data.base.preco)}
-              {data.filtered && <Badge variant="green" style={{ marginLeft: 8 }}>pre-filter: categoria = {data.base.categoria}</Badge>}
+              {data.filtered && (
+                <Badge variant="green" style={{ marginLeft: 8 }}>
+                  pre-filter: categoria = {data.base.categoria} + em_estoque = true
+                </Badge>
+              )}
             </div>
           </div>
 
@@ -79,6 +84,8 @@ export default function Similares() {
               </div>
             ))}
           </div>
+
+          {data.pipeline && <MqlBlock pipeline={data.pipeline} collection="POC.produtos_vector" />}
         </>
       )}
     </div>

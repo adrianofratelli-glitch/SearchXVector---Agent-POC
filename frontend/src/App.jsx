@@ -32,6 +32,13 @@ export default function App() {
   }, []);
 
   const c = stats?.collections || {};
+  const indices = stats?.indices || [];
+  const readyCount = indices.filter((i) => i.status === "READY").length;
+  const allReady = indices.length > 0 && readyCount === indices.length;
+  const indexSub = indices.length === 0
+    ? "aguardando conexão"
+    : allReady ? "Search + Vector · READY"
+    : indices.filter((i) => i.status !== "READY").map((i) => `${i.name}: ${i.status}`).join(" · ");
 
   return (
     <LeafyGreenProvider darkMode>
@@ -75,7 +82,8 @@ export default function App() {
             <KpiCard label="Documentos" value={fmtCount(c.produtos)} sub="produtos indexados" color="green" />
             <KpiCard label="Vetores Indexados" value={fmtCount(c.produtos_vector)} sub="embeddings · voyage-4" color="blue" />
             <KpiCard label="Avaliações" value={fmtCount(c.avaliacoes)} sub="reviews p/ o AI Agent" color="purple" />
-            <KpiCard label="Índices Ativos" value="2" sub="Atlas Search + Vector · READY" color="teal" />
+            <KpiCard label="Índices Ativos" value={indices.length ? `${readyCount}/${indices.length}` : "—"}
+                     sub={indexSub} color={allReady || indices.length === 0 ? "teal" : "purple"} />
           </div>
 
           {/* Tabs */}

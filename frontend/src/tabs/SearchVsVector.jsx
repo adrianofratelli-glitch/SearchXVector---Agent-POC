@@ -1,6 +1,7 @@
 import { useState } from "react";
 import TextInput from "@leafygreen-ui/text-input";
 import Button from "@leafygreen-ui/button";
+import Badge from "@leafygreen-ui/badge";
 import Banner from "@leafygreen-ui/banner";
 import { H3, Body, Subtitle } from "@leafygreen-ui/typography";
 import { compare } from "../api";
@@ -11,17 +12,24 @@ const SUGGESTIONS = ["academia em casa", "presente dia dos pais", "proteção so
 
 export default function SearchVsVector() {
   const [q, setQ] = useState("");
+  const [mode, setMode] = useState("phrase"); // "phrase" | "compound"
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(false);
 
-  const run = async (query) => {
+  const run = async (query, m) => {
     const text = query ?? q;
+    const useMode = m ?? mode;
     if (loading || !text.trim()) return;
     setQ(text);
     setLoading(true);
-    try { setData(await compare(text)); }
+    try { setData(await compare(text, useMode)); }
     catch (e) { setData({ error: `Falha na comparação: ${e.message}` }); }
     finally { setLoading(false); }
+  };
+
+  const switchMode = (m) => {
+    setMode(m);
+    if (q.trim()) run(q, m);
   };
 
   const baseCols = [
@@ -45,7 +53,9 @@ export default function SearchVsVector() {
       </Body>
 
       <Banner variant="info" darkMode style={{ marginBottom: 12 }}>
-        💡 Tente uma frase conceitual: a busca textual retorna <b>zero</b>, mas a vetorial entende o significado.
+        💡 Tente uma frase conceitual: em <b>frase exata</b> a busca textual retorna <b>zero</b>; em{" "}
+        <b>compound</b> (o mesmo operador do e-commerce, comparação justa) ela retorna matches de
+        palavra-chave — e a vetorial continua ganhando em significado.
       </Banner>
 
       <div style={{ display: "flex", gap: 12, alignItems: "flex-end", marginBottom: 10 }}>
@@ -53,6 +63,15 @@ export default function SearchVsVector() {
           <TextInput aria-labelledby="svv-title" placeholder="academia em casa, home office…"
             value={q} onChange={(e) => setQ(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && run()} darkMode />
+        </div>
+        <div style={{ display: "flex", borderRadius: 6, overflow: "hidden", border: `1px solid ${T.border}` }}>
+          {[["phrase", "Frase exata"], ["compound", "Compound (justo)"]].map(([m, label]) => (
+            <button key={m} onClick={() => switchMode(m)} style={{
+              cursor: "pointer", fontSize: 12, fontFamily: T.font, padding: "9px 12px", border: "none",
+              background: mode === m ? "rgba(0,237,100,0.15)" : T.surface,
+              color: mode === m ? T.green : T.text3, fontWeight: mode === m ? 700 : 400,
+            }}>{label}</button>
+          ))}
         </div>
         <Button variant="primary" onClick={() => run()} disabled={loading} darkMode>
           {loading ? "Comparando…" : "Comparar"}
@@ -67,23 +86,34 @@ export default function SearchVsVector() {
         </div>
       )}
 
-      {data && (
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 14, marginTop: 16 }}>
-          <Col title="🔤 Atlas Search" subtitle="frase literal" accent={T.green}
-               count={data.search.results.length} ms={data.elapsed_ms}>
-            {data.search.results.length === 0
-              ? <Banner variant="warning" darkMode>Sem resultados — a frase não existe nos nomes.</Banner>
-              : <ProductTable rows={data.search.results} columns={baseCols} />}
-          </Col>
-          <Col title="🧠 Vector Search" subtitle="significado" accent={T.blue}
-               count={data.vector.results.length} ms={data.elapsed_ms}>
-            <ProductTable rows={data.vector.results} columns={baseCols} />
-          </Col>
-          <Col title="🏆 Hybrid RRF" subtitle="fusão k=60" accent={T.purple}
-               count={data.hybrid.length} ms={data.elapsed_ms}>
-            <ProductTable rows={data.hybrid} columns={hybridCols} />
-          </Col>
-        </div>
+      {data?.error && <Banner variant="danger" darkMode>{data.error}</Banner>}
+
+      {data && !data.error && (
+        <>
+          <div style={{ display: "flex", gap: 8, margin: "12px 0 4px", flexWrap: "wrap" }}>
+            <Badge variant={data.same_corpus ? "green" : "yellow"}>
+              {data.same_corpus
+                ? "mesmo corpus (produtos_vector · 500K) nos dois motores"
+                : "corpora distintos: Search em 20M · Vector em 500K (amostra)"}
+            </Badge>
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 14, marginTop: 10 }}>
+            <Col title="🔤 Atlas Search" subtitle={data.mode === "phrase" ? "frase literal" : "compound + fuzzy"}
+                 accent={T.green} count={data.search.results.length} ms={data.search.elapsed_ms}>
+              {data.search.results.length === 0
+                ? <Banner variant="warning" darkMode>Sem resultados — a frase não existe nos nomes.</Banner>
+                : <ProductTable rows={data.search.results} columns={baseCols} />}
+            </Col>
+            <Col title="🧠 Vector Search" subtitle="significado" accent={T.blue}
+                 count={data.vector.results.length} ms={data.vector.elapsed_ms}>
+              <ProductTable rows={data.vector.results} columns={baseCols} />
+            </Col>
+            <Col title="🏆 Hybrid RRF" subtitle="fusão k=60" accent={T.purple}
+                 count={data.hybrid.length} ms={data.elapsed_ms}>
+              <ProductTable rows={data.hybrid} columns={hybridCols} />
+            </Col>
+          </div>
+        </>
       )}
     </div>
   );

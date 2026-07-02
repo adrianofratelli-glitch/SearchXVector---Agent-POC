@@ -46,6 +46,7 @@ class SearchReq(BaseModel):
 
 class CompareReq(BaseModel):
     query: str = Field(..., min_length=1, max_length=500)
+    mode: str = Field("phrase", pattern="^(phrase|compound)$")
 
 class HybridReq(BaseModel):
     query: str = Field(..., min_length=1, max_length=500)
@@ -74,13 +75,14 @@ def health():
 @app.get("/stats")
 def stats():
     counts = atlas.get_stats()
-    return {
-        "collections": counts,
-        "indices": [
-            {"name": "produtos_search", "type": "Atlas Search", "status": "READY"},
-            {"name": "produtos_vector", "type": "Vector Search", "status": "READY"},
-        ],
-    }
+    # Real status via $listSearchIndexes — a building/failed index shows as such
+    indices = atlas.get_index_status()
+    if not indices:  # cluster without $listSearchIndexes support / no indexes yet
+        indices = [
+            {"name": "produtos_search", "type": "Atlas Search", "status": "UNKNOWN"},
+            {"name": "produtos_vector", "type": "Vector Search", "status": "UNKNOWN"},
+        ]
+    return {"collections": counts, "indices": indices}
 
 @app.post("/search")
 def search(req: SearchReq):
@@ -95,7 +97,7 @@ def facets(req: SearchReq):
 
 @app.post("/compare")
 def compare(req: CompareReq):
-    return atlas.compare_search_vector(req.query)
+    return atlas.compare_search_vector(req.query, mode=req.mode)
 
 @app.post("/hybrid")
 def hybrid(req: HybridReq):
@@ -113,18 +115,20 @@ def agent_route(req: AgentReq):
     out["thread_id"] = thread_id
     return out
 
-# The analytics $facet samples 12k docs — costly to repeat on every refresh; cache for 5 min
-_analytics_cache = {"data": None, "ts": 0.0}
+# The analytics $facet is costly to repeat on every refresh; cache 5 min per mode
+_analytics_cache = {}  # "sample"/"full" -> {"data": dict, "ts": float}
 
 @app.get("/analytics")
-def analytics():
-    if _analytics_cache["data"] is None or time.time() - _analytics_cache["ts"] > 300:
-        data = atlas.get_analytics()
+def analytics(full: bool = False):
+    key = "full" if full else "sample"
+    hit = _analytics_cache.get(key)
+    if hit is None or time.time() - hit["ts"] > 300:
+        data = atlas.get_analytics(full=full)
         if isinstance(data, dict) and data.get("error"):
             return data  # do not cache errors
-        _analytics_cache["data"] = data
-        _analytics_cache["ts"] = time.time()
-    return _analytics_cache["data"]
+        _analytics_cache[key] = {"data": data, "ts": time.time()}
+        return data
+    return hit["data"]
 
 @app.post("/similar")
 def similar(req: SimilarReq):

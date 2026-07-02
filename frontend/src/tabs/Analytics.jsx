@@ -22,20 +22,49 @@ function Bar({ label, value, max, sub, color = T.green }) {
 }
 
 export default function Analytics() {
+  const [full, setFull] = useState(false);
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => { getAnalytics().then(setData).catch(() => setData({ error: "falha" })).finally(() => setLoading(false)); }, []);
+  useEffect(() => {
+    setLoading(true);
+    getAnalytics(full).then(setData).catch(() => setData({ error: "falha" })).finally(() => setLoading(false));
+  }, [full]);
 
-  if (loading) return <Body style={{ color: T.text2 }}>Rodando aggregation pipeline ($facet) no servidor…</Body>;
-  if (data?.error) return <Banner variant="danger">{data.error}</Banner>;
+  const ModeToggle = () => (
+    <div style={{ display: "inline-flex", borderRadius: 6, overflow: "hidden", border: `1px solid ${T.border}`, marginLeft: 10, verticalAlign: "middle" }}>
+      {[[false, "Amostra 12k"], [true, "Base completa"]].map(([f, label]) => (
+        <button key={label} onClick={() => setFull(f)} disabled={loading} style={{
+          cursor: "pointer", fontSize: 11, fontFamily: T.font, padding: "5px 10px", border: "none",
+          background: full === f ? "rgba(0,237,100,0.15)" : T.surface,
+          color: full === f ? T.green : T.text3, fontWeight: full === f ? 700 : 400,
+        }}>{label}</button>
+      ))}
+    </div>
+  );
+
+  if (loading) {
+    return <Body style={{ color: T.text2 }}>
+      Rodando aggregation pipeline ($facet) no servidor{full ? " — base completa, pode levar alguns segundos…" : "…"}
+    </Body>;
+  }
+  if (data?.error) {
+    return (
+      <div>
+        <Banner variant="danger" darkMode>{data.error}</Banner>
+        <div style={{ marginTop: 12 }}><ModeToggle /></div>
+      </div>
+    );
+  }
 
   const cats = data.por_categoria || [];
   const marcas = data.top_marcas || [];
   const faixas = data.faixa_preco || [];
+  const meses = data.por_mes || [];
   const maxCat = Math.max(...cats.map(c => c.total), 1);
   const maxMarca = Math.max(...marcas.map(m => m.total), 1);
   const maxFaixa = Math.max(...faixas.map(f => f.total), 1);
+  const maxMes = Math.max(...meses.map(m => m.total), 1);
 
   return (
     <div>
@@ -44,7 +73,12 @@ export default function Analytics() {
       <Body style={{ color: T.text2, marginBottom: 8 }}>
         Um único <code style={{ color: T.green }}>$facet</code> roda vários agregados em paralelo no servidor — MongoDB
         como engine analítico sobre a base de produtos. <Badge variant="green">{data.elapsed_ms} ms</Badge>
-        <span style={{ color: T.text3, fontSize: 12 }}> · amostra de {(data.geral?.amostra || 0).toLocaleString("pt-BR")} docs</span>
+        <span style={{ color: T.text3, fontSize: 12 }}>
+          {" "}· {data.full
+            ? `base completa: ${(data.geral?.amostra || 0).toLocaleString("pt-BR")} docs`
+            : `amostra de ${(data.geral?.amostra || 0).toLocaleString("pt-BR")} docs ($sample p/ latência de demo)`}
+        </span>
+        <ModeToggle />
       </Body>
 
       {/* Overview KPIs */}
@@ -79,11 +113,24 @@ export default function Analytics() {
         </div>
       </div>
 
-      <Subtitle style={{ color: T.text, fontSize: 14, margin: "22px 0 12px" }}>Distribuição por faixa de preço ($bucket)</Subtitle>
-      {faixas.map((f) => (
-        <Bar key={f.label} label={f.label} value={f.total} max={maxFaixa}
-             sub={f.total.toLocaleString("pt-BR")} color={T.purple} />
-      ))}
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 22, marginTop: 22 }}>
+        <div>
+          <Subtitle style={{ color: T.text, fontSize: 14, marginBottom: 12 }}>Distribuição por faixa de preço ($bucket)</Subtitle>
+          {faixas.map((f) => (
+            <Bar key={f.label} label={f.label} value={f.total} max={maxFaixa}
+                 sub={f.total.toLocaleString("pt-BR")} color={T.purple} />
+          ))}
+        </div>
+        {meses.length > 0 && (
+          <div>
+            <Subtitle style={{ color: T.text, fontSize: 14, marginBottom: 12 }}>Produtos cadastrados por mês ($dateToString)</Subtitle>
+            {meses.map((m) => (
+              <Bar key={m._id} label={m._id} value={m.total} max={maxMes}
+                   sub={m.total.toLocaleString("pt-BR")} color={T.teal} />
+            ))}
+          </div>
+        )}
+      </div>
 
       <div style={{ marginTop: 22 }}>
         <MqlBlock pipeline={data.pipeline} collection="POC.produtos" />

@@ -30,19 +30,25 @@ React + LeafyGreen  ──axios──►  FastAPI  ──►  MongoDB Atlas
 The UI is organized into seven tabs, each demonstrating a distinct Atlas capability.
 
 **Atlas Search** — Full-text search over the product catalog: autocomplete,
-fuzzy matching (`"adidass"` → Adidas), faceted navigation via `$searchMeta`,
-native highlighting, total match counts, compound queries, and an optional
-synonym mapping.
+fuzzy matching (`"adidass"` → Adidas), clickable faceted navigation via
+`$searchMeta` (category chips + price buckets), native highlighting, total
+match counts, compound queries, `scoreDetails` relevance transparency, and an
+optional synonym mapping. When the index supports it, price/stock/category
+filters run inside `$search` (`compound.filter`) so the match count reflects
+the filters; otherwise the app falls back to a post-`$match` and flags it.
 
 **Search vs Vector** — Side-by-side comparison of lexical search and semantic
-search. Conceptual queries such as `"academia em casa"` return nothing under
-full-text search but surface dumbbells, whey protein, and kettlebells under
-vector search, illustrating the value of autoEmbed.
+search, with two lexical modes: *exact phrase* (conceptual queries such as
+`"academia em casa"` return **zero**) and *compound* (the same e-commerce
+operator from tab 1 — a fair baseline that still loses to vector search on
+meaning). Each engine reports its own latency.
 
-**Hybrid RRF** — Combines full-text and vector results with Reciprocal Rank
-Fusion (`score = Σ 1 / (k + rankᵢ)`). The `k` constant and per-engine result
-counts are adjustable, and each result shows its origin (search only, vector
-only, or both).
+**Hybrid RRF** — Two engines, switchable in the UI: the native `$rankFusion`
+stage (MongoDB 8.1+, fusion happens server-side in a single aggregation) and
+an application-side Reciprocal Rank Fusion (`score = Σ 1 / (k + rankᵢ)`) with
+adjustable `k` and per-engine result counts, kept as the educational view.
+When `$rankFusion` requirements aren't met, the app falls back gracefully and
+says why. Fusion is keyed by `produto_id`.
 
 **Similares** — Vector "more like this" using a product's description as the
 query, with native pre-filtering: the category and stock filters run inside
@@ -50,31 +56,45 @@ query, with native pre-filtering: the category and stock filters run inside
 
 **Analytics** — A single `$facet` pipeline runs several aggregations in parallel
 on the server, positioning MongoDB as an analytical engine over the catalog.
+Defaults to a 12k `$sample` for demo latency, with a toggle to run the same
+pipeline over the full collection and compare timings.
 
-**Reviews RAG** — Atlas Search locates a product, its real reviews are pulled
-from MongoDB, and Claude summarizes them grounded strictly in that data.
+**Reviews RAG** — A real `$search` query finds the most relevant product that
+has reviews, the reviews are pulled from MongoDB, and Claude summarizes them
+grounded strictly in that data. The executed pipelines are shown in the UI.
 
 **AI Agent** — A LangGraph ReAct agent with four MongoDB tools
 (`busca_semantica`, `buscar_produto`, `comparar_categoria`,
-`produtos_por_faixa_preco`), long-term memory via `MongoDBSaver`, and a
-transparent trace exposing each tool call, the generated MQL, and the result
-returned to the model.
+`produtos_por_faixa_preco`), long-term memory via `MongoDBSaver` (with
+follow-up suggestions that exercise the thread memory), and a transparent
+trace: the pipelines shown in the UI are built by the same functions the
+tools execute — byte-for-byte what ran.
 
 ## Collections
 
 ```
 POC (database)
-├── produtos          Product catalog        — Atlas Search index: produtos_search
-├── produtos_vector   Embedded subset        — Vector Search index: produtos_vector (voyage-4)
+├── produtos          Product catalog (20M)  — Atlas Search index: produtos_search
+├── produtos_vector   Embedded subset (500K) — Vector Search index: produtos_vector (voyage-4)
+│                                            — Atlas Search index: produtos_vector_search
 ├── avaliacoes        Product reviews         — used by Reviews RAG and the agent
 └── checkpoints       LangGraph agent memory
 ```
+
+> **Why a 500K subset for vectors?** Auto-embedding 20M descriptions is a
+> deliberate cost/build-time decision, not a platform limitation — the subset
+> is a representative `$sample` of the catalog. The extra lexical index on
+> `produtos_vector` (`produtos_vector_search`) exists so hybrid search runs
+> both engines over the **same corpus**, which native `$rankFusion` requires
+> (its sub-pipelines target a single collection). The app detects available
+> indexes via `$listSearchIndexes` and degrades gracefully when one is missing.
 
 ## Setup
 
 ### Prerequisites
 
-- MongoDB Atlas cluster 8.0+
+- MongoDB Atlas cluster 8.0+ (8.1+ for native `$rankFusion` in the Hybrid tab;
+  on 8.0 the app falls back to application-side RRF and flags it)
 - Anthropic API key (Claude)
 - Python 3.11+ and Node 18+
 
@@ -87,6 +107,20 @@ MONGODB_URI=mongodb+srv://<user>:<password>@<cluster>.mongodb.net/
 DB_NAME=POC
 ANTHROPIC_API_KEY=sk-ant-...
 ```
+
+### Search indexes (one-time)
+
+With the `.env` in place, apply the index changes the demo expects — patches
+`produtos_search` (filterable types) and creates `produtos_vector_search`
+(same-corpus hybrid / native `$rankFusion`), idempotently:
+
+```bash
+python3 setup_search_indexes.py           # apply + wait for READY
+python3 setup_search_indexes.py --status  # check build progress later
+```
+
+The app degrades gracefully while indexes are building or missing — the UI
+badges show which fallback is active.
 
 ### Run (backend + frontend)
 

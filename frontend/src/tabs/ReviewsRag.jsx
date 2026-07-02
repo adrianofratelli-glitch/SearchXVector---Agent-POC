@@ -7,6 +7,7 @@ import { H3, Body, Subtitle } from "@leafygreen-ui/typography";
 import ReactMarkdown from "react-markdown";
 import { reviewsRag } from "../api";
 import { T } from "../theme";
+import { MqlBlock } from "../components/ProductTable";
 
 const SUGESTOES = ["ASUS ZenBook", "Royal Canin", "Garmin Fenix", "Sony Alpha", "Adidas Techfit"];
 
@@ -64,6 +65,9 @@ export default function ReviewsRag() {
               <div style={{ marginBottom: 12 }}>
                 <Badge variant="blue">{data.produto.categoria}</Badge>{" "}
                 <Badge variant="green">⭐ {data.nota_media} média</Badge>{" "}
+                <Badge variant={data.via === "atlas_search" ? "green" : "yellow"}>
+                  {data.via === "atlas_search" ? "🔍 produto via Atlas Search" : "produto via catálogo (fallback)"}
+                </Badge>{" "}
                 <span style={{ fontSize: 12, color: T.text3 }}>· {data.total_analisado} reviews analisados</span>
               </div>
               <div className="md" style={{ color: T.text, fontSize: 14, lineHeight: 1.6 }}>
@@ -86,6 +90,12 @@ export default function ReviewsRag() {
               </div>
             ))}
           </div>
+        </div>
+      )}
+
+      {data?.pipeline && (
+        <div style={{ marginTop: 16 }}>
+          <MqlBlock pipeline={data.pipeline} collection="POC.produtos → POC.avaliacoes" />
         </div>
       )}
     </div>

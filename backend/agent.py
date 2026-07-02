@@ -16,17 +16,59 @@ from atlas import db, safe_aggregate, _client, DB_NAME
 llm = ChatAnthropic(model="claude-sonnet-4-6", temperature=0)
 
 
+# ── Pipeline builders — SINGLE source of truth ───────────────────────────────
+# The tools execute these pipelines and the trace shows them: what the UI
+# displays is byte-for-byte what ran (no separate "reconstruction" to drift).
+def _pipe_busca_semantica(consulta: str) -> list:
+    return [
+        {"$vectorSearch": {"index": "produtos_vector", "path": "descricao", "query": consulta,
+                           "numCandidates": 150, "limit": 10}},
+        {"$project": {"_id": 0, "nome": 1, "marca": 1, "categoria": 1, "preco": 1,
+                      "avaliacao_media": 1, "score": {"$meta": "vectorSearchScore"}}},
+    ]
+
+def _pipe_buscar_produto(nome: str) -> list:
+    return [
+        {"$search": {"index": "produtos_search",
+                     "autocomplete": {"query": nome, "path": "nome", "fuzzy": {"maxEdits": 1}}}},
+        {"$limit": 10},
+        {"$project": {"_id": 0, "nome": 1, "marca": 1, "categoria": 1, "preco": 1,
+                      "avaliacao_media": 1, "em_estoque": 1, "score": {"$meta": "searchScore"}}},
+    ]
+
+def _pipe_comparar_categoria(categoria: str, limite: int = 10) -> list:
+    return [
+        {"$match": {"categoria": categoria, "em_estoque": True}},
+        {"$sort": {"avaliacao_media": -1, "total_avaliacoes": -1}},
+        {"$limit": limite},
+        {"$project": {"_id": 0, "nome": 1, "marca": 1, "preco": 1,
+                      "avaliacao_media": 1, "total_avaliacoes": 1}},
+    ]
+
+def _pipe_produtos_por_faixa_preco(categoria: str, preco_min: float, preco_max: float) -> list:
+    return [
+        {"$match": {"categoria": categoria, "em_estoque": True,
+                    "preco": {"$gte": preco_min, "$lte": preco_max}}},
+        {"$sort": {"avaliacao_media": -1}},
+        {"$limit": 10},
+        {"$project": {"_id": 0, "nome": 1, "marca": 1, "preco": 1, "avaliacao_media": 1}},
+    ]
+
+PIPELINE_BUILDERS = {
+    "busca_semantica":          lambda a: _pipe_busca_semantica(a.get("consulta", "")),
+    "buscar_produto":           lambda a: _pipe_buscar_produto(a.get("nome", "")),
+    "comparar_categoria":       lambda a: _pipe_comparar_categoria(a.get("categoria", ""), a.get("limite", 10)),
+    "produtos_por_faixa_preco": lambda a: _pipe_produtos_por_faixa_preco(
+        a.get("categoria", ""), a.get("preco_min", 0), a.get("preco_max", 0)),
+}
+
+
 # ── Tools ────────────────────────────────────────────────────────────────────
 @tool
 def busca_semantica(consulta: str) -> str:
     """Busca produtos por similaridade semântica. Use para: 'academia em casa',
     'presente para o dia dos pais', 'home office', etc."""
-    results, err = safe_aggregate("produtos_vector", [
-        {"$vectorSearch": {"index": "produtos_vector", "path": "descricao", "query": consulta,
-                           "numCandidates": 150, "limit": 10}},
-        {"$project": {"nome": 1, "marca": 1, "categoria": 1, "preco": 1,
-                      "avaliacao_media": 1, "score": {"$meta": "vectorSearchScore"}}},
-    ])
+    results, err = safe_aggregate("produtos_vector", _pipe_busca_semantica(consulta))
     if err:
         return f"Erro na busca semântica: {err}"
     if not results:
@@ -39,13 +81,7 @@ def busca_semantica(consulta: str) -> str:
 @tool
 def buscar_produto(nome: str) -> str:
     """Busca produtos pelo nome usando Atlas Search full-text com fuzzy matching."""
-    results, err = safe_aggregate("produtos", [
-        {"$search": {"index": "produtos_search",
-                     "autocomplete": {"query": nome, "path": "nome", "fuzzy": {"maxEdits": 1}}}},
-        {"$limit": 10},
-        {"$project": {"nome": 1, "marca": 1, "categoria": 1, "preco": 1,
-                      "avaliacao_media": 1, "em_estoque": 1, "score": {"$meta": "searchScore"}}},
-    ])
+    results, err = safe_aggregate("produtos", _pipe_buscar_produto(nome))
     if err:
         return f"Erro na busca: {err}"
     if not results:
@@ -58,12 +94,7 @@ def buscar_produto(nome: str) -> str:
 @tool
 def comparar_categoria(categoria: str, limite: int = 10) -> str:
     """Retorna os produtos mais bem avaliados de uma categoria."""
-    results, err = safe_aggregate("produtos", [
-        {"$match": {"categoria": categoria, "em_estoque": True}},
-        {"$sort": {"avaliacao_media": -1, "total_avaliacoes": -1}},
-        {"$limit": limite},
-        {"$project": {"nome": 1, "marca": 1, "preco": 1, "avaliacao_media": 1, "total_avaliacoes": 1}},
-    ])
+    results, err = safe_aggregate("produtos", _pipe_comparar_categoria(categoria, limite))
     if err:
         return f"Erro: {err}"
     if not results:
@@ -76,13 +107,7 @@ def comparar_categoria(categoria: str, limite: int = 10) -> str:
 @tool
 def produtos_por_faixa_preco(categoria: str, preco_min: float, preco_max: float) -> str:
     """Busca produtos em uma categoria dentro de uma faixa de preço específica."""
-    results, err = safe_aggregate("produtos", [
-        {"$match": {"categoria": categoria, "em_estoque": True,
-                    "preco": {"$gte": preco_min, "$lte": preco_max}}},
-        {"$sort": {"avaliacao_media": -1}},
-        {"$limit": 10},
-        {"$project": {"nome": 1, "marca": 1, "preco": 1, "avaliacao_media": 1}},
-    ])
+    results, err = safe_aggregate("produtos", _pipe_produtos_por_faixa_preco(categoria, preco_min, preco_max))
     if err:
         return f"Erro: {err}"
     if not results:
@@ -91,7 +116,7 @@ def produtos_por_faixa_preco(categoria: str, preco_min: float, preco_max: float)
         f"- {r['nome']} | R$ {r['preco']:.2f} | ⭐ {r['avaliacao_media']:.1f}" for r in results)
 
 
-# ── MQL reconstruction for the trace ─────────────────────────────────────────
+# ── Trace metadata ───────────────────────────────────────────────────────────
 TOOL_META = {
     "busca_semantica":         {"engine": "Vector Search", "collection": "produtos_vector"},
     "buscar_produto":          {"engine": "Atlas Search",  "collection": "produtos"},
@@ -99,35 +124,10 @@ TOOL_META = {
     "produtos_por_faixa_preco":{"engine": "Aggregation",   "collection": "produtos"},
 }
 
-def reconstruct_mql(tool_name: str, args: dict) -> list:
-    if tool_name == "busca_semantica":
-        return [
-            {"$vectorSearch": {"index": "produtos_vector", "path": "descricao",
-                               "query": args.get("consulta", ""), "numCandidates": 150, "limit": 10}},
-            {"$project": {"nome": 1, "preco": 1, "categoria": 1, "score": {"$meta": "vectorSearchScore"}}},
-        ]
-    if tool_name == "buscar_produto":
-        return [
-            {"$search": {"index": "produtos_search",
-                         "autocomplete": {"query": args.get("nome", ""), "path": "nome", "fuzzy": {"maxEdits": 1}}}},
-            {"$limit": 10},
-            {"$project": {"nome": 1, "preco": 1, "em_estoque": 1, "score": {"$meta": "searchScore"}}},
-        ]
-    if tool_name == "comparar_categoria":
-        return [
-            {"$match": {"categoria": args.get("categoria", ""), "em_estoque": True}},
-            {"$sort": {"avaliacao_media": -1, "total_avaliacoes": -1}},
-            {"$limit": args.get("limite", 10)},
-            {"$project": {"nome": 1, "preco": 1, "avaliacao_media": 1}},
-        ]
-    if tool_name == "produtos_por_faixa_preco":
-        return [
-            {"$match": {"categoria": args.get("categoria", ""), "em_estoque": True,
-                        "preco": {"$gte": args.get("preco_min", 0), "$lte": args.get("preco_max", 0)}}},
-            {"$sort": {"avaliacao_media": -1}}, {"$limit": 10},
-            {"$project": {"nome": 1, "preco": 1, "avaliacao_media": 1}},
-        ]
-    return []
+def build_tool_pipeline(tool_name: str, args: dict) -> list:
+    """The exact pipeline a tool ran for these args (same builder the tool used)."""
+    builder = PIPELINE_BUILDERS.get(tool_name)
+    return builder(args) if builder else []
 
 
 SYSTEM_PROMPT = """Você é um assistente especialista em recomendações de produtos de um marketplace.
@@ -165,7 +165,7 @@ def run_agent(message: str, thread_id: str) -> dict:
             trace.append({
                 "tool": info["name"], "args": info["args"],
                 "engine": meta["engine"], "collection": meta["collection"],
-                "mql": reconstruct_mql(info["name"], info["args"]),
+                "mql": build_tool_pipeline(info["name"], info["args"]),
                 "result": str(m.content)[:600],
             })
     return {"answer": answer, "trace": trace}
