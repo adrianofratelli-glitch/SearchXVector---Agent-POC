@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from "react";
+import ReactMarkdown from "react-markdown";
 import TextInput from "@leafygreen-ui/text-input";
 import Button from "@leafygreen-ui/button";
 import Badge from "@leafygreen-ui/badge";
@@ -134,7 +135,9 @@ function Msg({ msg }) {
         </span>
         {msg.ms != null && <span style={{ fontSize: 11, color: T.text3, fontFamily: T.mono }}>· {msg.ms} ms</span>}
       </div>
-      <Body style={{ color: msg.error ? T.red : T.text, whiteSpace: "pre-wrap" }}>{msg.content}</Body>
+      <div style={{ color: msg.error ? T.red : T.text, fontSize: 13, lineHeight: 1.6 }} className="md-body">
+        <ReactMarkdown>{msg.content}</ReactMarkdown>
+      </div>
 
       {msg.trace?.length > 0 && (
         <details style={{ marginTop: 10, background: T.codeBg, border: `1px solid ${T.border}`, borderRadius: 10 }}>

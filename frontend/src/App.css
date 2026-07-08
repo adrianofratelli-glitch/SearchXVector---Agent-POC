@@ -1,3 +1,8 @@
+.md-body p { margin: 0 0 8px; }
+.md-body p:last-child { margin-bottom: 0; }
+.md-body ul, .md-body ol { margin: 4px 0 8px; padding-left: 20px; }
+.md-body code { font-family: var(--mono, monospace); font-size: 0.9em; }
+
 .counter {
   font-size: 16px;
   padding: 5px 10px;
