@@ -74,7 +74,7 @@ def health():
 
 @app.get("/stats")
 def stats():
-    counts = atlas.get_stats()
+    counts, degraded = atlas.get_stats()
     # Real status via $listSearchIndexes — a building/failed index shows as such
     indices = atlas.get_index_status()
     if not indices:  # cluster without $listSearchIndexes support / no indexes yet
@@ -82,7 +82,9 @@ def stats():
             {"name": "produtos_search", "type": "Atlas Search", "status": "UNKNOWN"},
             {"name": "produtos_vector", "type": "Vector Search", "status": "UNKNOWN"},
         ]
-    return {"collections": counts, "indices": indices}
+    # degraded=True → the cluster itself is unreachable (this endpoint always
+    # returns 200, so the frontend can't rely on an HTTP failure to detect it).
+    return {"collections": counts, "indices": indices, "degraded": degraded}
 
 @app.post("/search")
 def search(req: SearchReq):

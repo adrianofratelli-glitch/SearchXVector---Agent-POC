@@ -40,14 +40,18 @@ def safe_aggregate(collection: str, pipeline: list):
 
 
 # ── Collection stats ─────────────────────────────────────────────────────────
-def get_stats() -> dict:
-    out = {}
+def get_stats() -> tuple[dict, bool]:
+    """Returns (counts, degraded). degraded=True means the cluster itself was
+    unreachable (not just an empty collection) — the caller uses this instead
+    of relying on an HTTP failure, since this endpoint always returns 200."""
+    out, degraded = {}, False
     for c in ["produtos", "produtos_vector", "avaliacoes"]:
         try:
             out[c] = db[c].estimated_document_count()
         except Exception:
             out[c] = 0
-    return out
+            degraded = True
+    return out, degraded
 
 
 # ── Search-index introspection ($listSearchIndexes) ─────────────────────────
@@ -566,6 +570,11 @@ def compare_search_vector(query: str, mode: str = "phrase") -> dict:
 
     fused = _rrf_fuse(text_res, vec_res, k=60, limit=10)
 
+    # Machine-readable degradation signal — err_s/err_v are nested under
+    # search/vector already, but the UI needs a top-level flag to badge
+    # "index missing/building" instead of rendering a silent "no results".
+    degraded = {"search": err_s, "vector": err_v} if (err_s or err_v) else None
+
     return {
         "search":  {"results": text_res or [], "error": err_s,
                     "pipeline": search_pipeline, "elapsed_ms": round(t_search)},
@@ -579,6 +588,7 @@ def compare_search_vector(query: str, mode: str = "phrase") -> dict:
         # True → both engines queried the same 500K collection (honest fusion).
         "same_corpus": bool(same_index),
         "elapsed_ms": round(t_search + t_vector),
+        "degraded": degraded,
     }
 
 
@@ -612,7 +622,15 @@ def hybrid_rrf(query: str, k=60, n_search=20, n_vector=20) -> dict:
     elapsed = (time.time() - t0) * 1000
 
     if err_s or err_v:
-        return {"error": err_s or err_v, "fused": []}
+        # Name which engine failed and why — a bare "err_s or err_v" hides
+        # whether it was the lexical or the vector side (or both).
+        parts = []
+        if err_s:
+            parts.append(f"busca textual: {err_s}")
+        if err_v:
+            parts.append(f"busca vetorial: {err_v}")
+        reason = " · ".join(parts)
+        return {"error": reason, "reason": reason, "fused": [], "counts": {}}
 
     fused = _rrf_fuse(search_res, vector_res, k=k, limit=20)
 

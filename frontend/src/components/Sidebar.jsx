@@ -52,7 +52,11 @@ export default function Sidebar({ active, onSelect, stats, offline = false }) {
             const on = active === it.tab;
             return (
               <div key={it.label} onClick={() => onSelect(it.tab)}
-                className={on ? undefined : "nav-item"}
+                role="button" tabIndex={0} aria-current={on ? "page" : undefined}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onSelect(it.tab); }
+                }}
+                className={on ? "nav-link" : "nav-item nav-link"}
                 style={{
                   display: "flex", alignItems: "center", gap: 10, padding: "8px 12px",
                   borderRadius: "0 6px 6px 0", cursor: "pointer", marginBottom: 2,
@@ -61,7 +65,7 @@ export default function Sidebar({ active, onSelect, stats, offline = false }) {
                   color: on ? T.green : T.text2, fontWeight: on ? 600 : 400, fontSize: 13,
                   transition: "background .15s",
                 }}>
-                <span style={{ fontSize: 14, opacity: on ? 1 : 0.55 }}>{it.icon}</span>
+                <span style={{ fontSize: 14, opacity: on ? 1 : 0.55 }} aria-hidden="true">{it.icon}</span>
                 <span>{it.label}</span>
               </div>
             );
@@ -86,19 +90,22 @@ export default function Sidebar({ active, onSelect, stats, offline = false }) {
 
       {/* Indexes */}
       <Overline style={{ color: T.text3, margin: "12px 0 8px", letterSpacing: "0.16em" }}>Índices Ativos</Overline>
-      {indices.map((idx) => (
-        <div key={idx.name} style={{
-          background: T.surface, border: `1px solid rgba(0,237,100,0.07)`,
-          borderRadius: 5, padding: "8px 10px", marginBottom: 4,
-        }}>
-          <div style={{ fontFamily: T.mono, fontSize: 11, color: T.green, fontWeight: 500 }}>{idx.name}</div>
-          <div style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 10, color: T.text3, marginTop: 2 }}>
-            <span style={{ width: 5, height: 5, borderRadius: "50%", background: T.green,
-                           boxShadow: `0 0 4px ${T.green}`, display: "inline-block" }} />
-            {idx.type} · {idx.status}
+      {indices.map((idx) => {
+        const idxColor = idx.status === "READY" ? T.green : idx.status === "BUILDING" ? T.yellow : T.red;
+        return (
+          <div key={idx.name} style={{
+            background: T.surface, border: `1px solid rgba(0,237,100,0.07)`,
+            borderRadius: 5, padding: "8px 10px", marginBottom: 4,
+          }}>
+            <div style={{ fontFamily: T.mono, fontSize: 11, color: T.green, fontWeight: 500 }}>{idx.name}</div>
+            <div style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 10, color: T.text3, marginTop: 2 }}>
+              <span style={{ width: 5, height: 5, borderRadius: "50%", background: idxColor,
+                             boxShadow: `0 0 4px ${idxColor}`, display: "inline-block" }} />
+              {idx.type} · {idx.status}
+            </div>
           </div>
-        </div>
-      ))}
+        );
+      })}
 
       {/* Cluster pill */}
       <div style={{ marginTop: "auto", paddingTop: 16 }}>

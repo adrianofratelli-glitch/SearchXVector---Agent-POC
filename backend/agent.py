@@ -11,7 +11,7 @@ from langchain_core.tools import tool
 from langgraph.prebuilt import create_react_agent
 from langgraph.checkpoint.mongodb import MongoDBSaver
 
-from atlas import db, safe_aggregate, _client, DB_NAME
+from atlas import db, safe_aggregate, _client, DB_NAME, get_search_indexes
 
 llm = ChatAnthropic(model="claude-sonnet-4-6", temperature=0)
 
@@ -54,6 +54,21 @@ def _pipe_produtos_por_faixa_preco(categoria: str, preco_min: float, preco_max: 
         {"$project": {"_id": 0, "nome": 1, "marca": 1, "preco": 1, "avaliacao_media": 1}},
     ]
 
+def _index_ready(collection: str, name: str | None = None, vector: bool = False) -> bool:
+    """Mirrors atlas.py's index-gating for the UI tabs — the agent's tools
+    must degrade the same way instead of throwing a raw PyMongo error at the
+    LLM when an index is missing, building, or the cluster is unreachable."""
+    for ix in get_search_indexes(collection):
+        is_vector = ix.get("type") == "vectorSearch"
+        if is_vector != vector:
+            continue
+        if name and ix.get("name") != name:
+            continue
+        if ix.get("status") == "READY":
+            return True
+    return False
+
+
 PIPELINE_BUILDERS = {
     "busca_semantica":          lambda a: _pipe_busca_semantica(a.get("consulta", "")),
     "buscar_produto":           lambda a: _pipe_buscar_produto(a.get("nome", "")),
@@ -68,6 +83,8 @@ PIPELINE_BUILDERS = {
 def busca_semantica(consulta: str) -> str:
     """Busca produtos por similaridade semântica. Use para: 'academia em casa',
     'presente para o dia dos pais', 'home office', etc."""
+    if not _index_ready("produtos_vector", vector=True):
+        return "Erro: índice de busca vetorial (produtos_vector) não está pronto ou o cluster está inacessível."
     results, err = safe_aggregate("produtos_vector", _pipe_busca_semantica(consulta))
     if err:
         return f"Erro na busca semântica: {err}"
@@ -81,6 +98,8 @@ def busca_semantica(consulta: str) -> str:
 @tool
 def buscar_produto(nome: str) -> str:
     """Busca produtos pelo nome usando Atlas Search full-text com fuzzy matching."""
+    if not _index_ready("produtos", name="produtos_search"):
+        return "Erro: índice de busca textual (produtos_search) não está pronto ou o cluster está inacessível."
     results, err = safe_aggregate("produtos", _pipe_buscar_produto(nome))
     if err:
         return f"Erro na busca: {err}"
@@ -162,10 +181,17 @@ def run_agent(message: str, thread_id: str) -> dict:
         if m.__class__.__name__ == "ToolMessage":
             info = pending.get(getattr(m, "tool_call_id", None), {"name": getattr(m, "name", "?"), "args": {}})
             meta = TOOL_META.get(info["name"], {"engine": "Tool", "collection": "?"})
+            result = str(m.content)[:600]
+            # Tools return a plain string for the LLM to read (see busca_semantica /
+            # buscar_produto), but the trace needs a machine-readable flag so the UI
+            # can badge "degraded" instead of just showing the raw error text.
+            degraded = result.startswith("Erro")
             trace.append({
                 "tool": info["name"], "args": info["args"],
                 "engine": meta["engine"], "collection": meta["collection"],
                 "mql": build_tool_pipeline(info["name"], info["args"]),
-                "result": str(m.content)[:600],
+                "result": result,
+                "degraded": degraded,
+                "reason": result if degraded else None,
             })
     return {"answer": answer, "trace": trace}

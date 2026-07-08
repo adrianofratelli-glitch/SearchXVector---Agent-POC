@@ -88,6 +88,14 @@ export default function SearchVsVector() {
 
       {data?.error && <Banner variant="danger" darkMode>{data.error}</Banner>}
 
+      {data?.degraded && (
+        <Banner variant="warning" darkMode style={{ marginBottom: 12 }}>
+          Degradado — {data.degraded.search && `busca textual: ${data.degraded.search}`}
+          {data.degraded.search && data.degraded.vector && " · "}
+          {data.degraded.vector && `busca vetorial: ${data.degraded.vector}`}
+        </Banner>
+      )}
+
       {data && !data.error && (
         <>
           <div style={{ display: "flex", gap: 8, margin: "12px 0 4px", flexWrap: "wrap" }}>

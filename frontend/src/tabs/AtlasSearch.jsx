@@ -19,6 +19,8 @@ function highlight(text, q) {
 
 const FAIXA_LABELS = { 0: "0–100", 100: "100–500", 500: "500–1K", 1000: "1K–3K", 3000: "3K–5K", 5000: "5K–10K", 10000: "10K–15K" };
 
+const SUGGESTIONS = ["adidass", "samsumg", "notebook gamer"];
+
 export default function AtlasSearch() {
   const [q, setQ] = useState("");
   const [synonyms, setSynonyms] = useState(false);
@@ -27,14 +29,15 @@ export default function AtlasSearch() {
   const [facetData, setFacetData] = useState(null);
   const [loading, setLoading] = useState(false);
 
-  const run = async (selectedCats) => {
+  const run = async (selectedCats, queryOverride) => {
     const categorias = selectedCats ?? cats;
-    if (loading || !q.trim()) return;
+    const query = queryOverride ?? q;
+    if (loading || !query.trim()) return;
     setLoading(true);
     try {
       const [res, fac] = await Promise.all([
-        search({ query: q, synonyms, categorias: categorias.length ? categorias : null }),
-        facets({ query: q, synonyms }).catch(() => null),
+        search({ query, synonyms, categorias: categorias.length ? categorias : null }),
+        facets({ query, synonyms }).catch(() => null),
       ]);
       setData(res);
       setFacetData(fac);
@@ -83,9 +86,15 @@ export default function AtlasSearch() {
         <div style={{ textAlign: "center", padding: "30px 0", color: T.text3 }}>
           <div style={{ fontSize: 30, marginBottom: 8 }}>🔍</div>
           <Subtitle style={{ color: T.text }}>Busque um produto para começar</Subtitle>
-          <Body style={{ color: T.text3, marginTop: 4 }}>
-            Tente <b style={{ color: T.text2 }}>adidass</b> ou <b style={{ color: T.text2 }}>samsumg</b> (com erro) para ver o fuzzy matching.
+          <Body style={{ color: T.text3, marginTop: 4, marginBottom: 14 }}>
+            Termos com erro de digitação (adidass, samsumg) testam o fuzzy matching.
           </Body>
+          <div style={{ display: "flex", gap: 8, justifyContent: "center", flexWrap: "wrap" }}>
+            {SUGGESTIONS.map((s) => (
+              <Button key={s} size="small" variant="default" darkMode
+                onClick={() => { setQ(s); run(cats, s); }}>{s}</Button>
+            ))}
+          </div>
         </div>
       )}
 

@@ -156,6 +156,11 @@ function Msg({ msg }) {
                     border: `1px solid ${ENGINE_COLOR[t.engine] || T.text3}44`, textTransform: "uppercase",
                     letterSpacing: "0.05em" }}>{t.engine}</span>
                   <span style={{ fontSize: 11, color: T.text3, fontFamily: T.mono }}>→ {t.collection}</span>
+                  {t.degraded && (
+                    <span title={t.reason} style={{ fontSize: 10, fontWeight: 700, padding: "2px 8px", borderRadius: 4,
+                      background: `${T.red}22`, color: T.red, border: `1px solid ${T.red}44`,
+                      textTransform: "uppercase", letterSpacing: "0.05em" }}>⚠ degradado</span>
+                  )}
                 </div>
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
                   <div>

@@ -1,6 +1,5 @@
 import { useState, useEffect } from "react";
 import LeafyGreenProvider from "@leafygreen-ui/leafygreen-provider";
-import { Tabs, Tab } from "@leafygreen-ui/tabs";
 import { getStats } from "./api";
 import { T, fmtCount } from "./theme";
 import Sidebar from "./components/Sidebar";
@@ -13,6 +12,8 @@ import AiAgent from "./tabs/AiAgent";
 import Analytics from "./tabs/Analytics";
 import Similares from "./tabs/Similares";
 import ReviewsRag from "./tabs/ReviewsRag";
+
+const TABS = [AtlasSearch, SearchVsVector, HybridRRF, Similares, Analytics, ReviewsRag, AiAgent];
 
 const PILLS = [
   { label: "Atlas Search", color: T.green },
@@ -28,9 +29,12 @@ export default function App() {
   const [offline, setOffline] = useState(false);
 
   useEffect(() => {
-    getStats().then(setStats).catch(() => setOffline(true));
+    getStats()
+      .then((s) => { setStats(s); setOffline(!!s.degraded); })
+      .catch(() => setOffline(true));
   }, []);
 
+  const ActiveTab = TABS[tab];
   const c = stats?.collections || {};
   const indices = stats?.indices || [];
   const readyCount = indices.filter((i) => i.status === "READY").length;
@@ -72,8 +76,10 @@ export default function App() {
           {offline && (
             <div style={{ background: "rgba(255,105,96,0.1)", border: `1px solid ${T.red}44`,
                           borderRadius: 8, padding: 16, color: T.red, marginBottom: 18 }}>
-              Backend não respondeu em <code>http://localhost:8200</code>. Rode{" "}
-              <code>bash start.sh</code> na raiz, ou <code>uvicorn main:app --port 8200</code> dentro de <code>backend/</code>.
+              {stats
+                ? <>Backend no ar, mas o cluster Atlas está inacessível — verifique a conexão/IP access list. Os dados abaixo estão zerados.</>
+                : <>Backend não respondeu em <code>http://localhost:8200</code>. Rode{" "}
+                    <code>bash start.sh</code> na raiz, ou <code>uvicorn main:app --port 8200</code> dentro de <code>backend/</code>.</>}
             </div>
           )}
 
@@ -86,16 +92,10 @@ export default function App() {
                      sub={indexSub} color={allReady || indices.length === 0 ? "teal" : "purple"} />
           </div>
 
-          {/* Tabs */}
-          <Tabs aria-label="Funcionalidades" value={tab} onValueChange={setTab} darkMode>
-            <Tab name="🔍 Atlas Search"><div className="fade-up" style={{ paddingTop: 18 }}><AtlasSearch /></div></Tab>
-            <Tab name="⚡ Search vs Vector"><div className="fade-up" style={{ paddingTop: 18 }}><SearchVsVector /></div></Tab>
-            <Tab name="🔀 Hybrid RRF"><div className="fade-up" style={{ paddingTop: 18 }}><HybridRRF /></div></Tab>
-            <Tab name="🎯 Similares"><div className="fade-up" style={{ paddingTop: 18 }}><Similares /></div></Tab>
-            <Tab name="📊 Analytics"><div className="fade-up" style={{ paddingTop: 18 }}><Analytics /></div></Tab>
-            <Tab name="💬 Reviews RAG"><div className="fade-up" style={{ paddingTop: 18 }}><ReviewsRag /></div></Tab>
-            <Tab name="🤖 AI Agent"><div className="fade-up" style={{ paddingTop: 18 }}><AiAgent /></div></Tab>
-          </Tabs>
+          {/* Active tab — navigation lives only in the sidebar, no duplicate tab strip */}
+          <div className="fade-up" key={tab} style={{ paddingTop: 18 }}>
+            <ActiveTab />
+          </div>
         </div>
       </div>
     </LeafyGreenProvider>
