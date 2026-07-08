@@ -207,8 +207,8 @@ shows a notice if the index is still building.
 └── README.md
 ```
 
-The repository also contains a separate Streamlit transaction-profiler demo
-(`app.py`, `populate_profiler.py`); it is independent of the marketplace POC.
+The repository also contains [`legacy-profiler-demo/`](legacy-profiler-demo/README.md),
+a separate Streamlit transaction-profiler demo unrelated to the marketplace POC.
 
 ## Stack
 
