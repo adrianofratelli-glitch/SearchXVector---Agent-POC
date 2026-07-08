@@ -8,6 +8,8 @@ agent over a synthetic marketplace catalog — all on a single platform.
 The demo is configurable for any dataset through environment variables
 (`MONGODB_URI`, `DB_NAME`).
 
+![Atlas Search — full-text search with facets and highlights](docs/screenshots/atlas-search.png)
+
 ## Architecture
 
 ```
@@ -69,6 +71,19 @@ grounded strictly in that data. The executed pipelines are shown in the UI.
 follow-up suggestions that exercise the thread memory), and a transparent
 trace: the pipelines shown in the UI are built by the same functions the
 tools execute — byte-for-byte what ran.
+
+## Screenshots
+
+| | |
+|---|---|
+| **Search vs Vector** — exact phrase returns zero, semantic search understands the intent | **Hybrid RRF** — native `$rankFusion` running server-side |
+| ![Search vs Vector](docs/screenshots/search-vs-vector.png) | ![Hybrid RRF](docs/screenshots/hybrid-rrf.png) |
+| **Similares** — vector "more like this" with pre-filtering inside `$vectorSearch` | **Analytics** — parallel `$facet` aggregations over the catalog |
+| ![Similares](docs/screenshots/similares.png) | ![Analytics](docs/screenshots/analytics.png) |
+
+**AI Agent** — LangGraph ReAct agent with MongoDB tools and a transparent MQL trace:
+
+![AI Agent](docs/screenshots/ai-agent.png)
 
 ## Collections
 
