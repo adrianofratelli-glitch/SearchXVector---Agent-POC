@@ -5,23 +5,29 @@ Serves the endpoints consumed by the React frontend (axios).
 Run:  uvicorn main:app --reload --port 8200
 """
 
+import logging
 import os
 import time
 import uuid
 import warnings
+from uuid import uuid4
 from dotenv import load_dotenv
 
 # Load the .env at the project root (one level above backend/)
 load_dotenv(os.path.join(os.path.dirname(__file__), "..", ".env"), override=True)
 warnings.filterwarnings("ignore")
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
+import observability
 import atlas
 from agent import run_agent
 from reviews import summarize_reviews
+
+observability.setup_logging()
+logger = logging.getLogger("searchxvector")
 
 app = FastAPI(title="Search × Vector POC API", version="1.0")
 
@@ -33,6 +39,29 @@ app.add_middleware(
     allow_methods=["GET", "POST", "OPTIONS"],
     allow_headers=["Content-Type"],
 )
+
+
+@app.middleware("http")
+async def _request_observability(request: Request, call_next):
+    """request_id on every response + per-route latency/error counters at /api/metrics."""
+    request_id = request.headers.get("x-request-id") or uuid4().hex[:16]
+    start = time.perf_counter()
+    try:
+        response = await call_next(request)
+    except Exception:
+        observability.metrics.observe(request.url.path, 500, (time.perf_counter() - start) * 1000)
+        logger.exception("unhandled error request_id=%s path=%s", request_id, request.url.path)
+        raise
+    elapsed_ms = (time.perf_counter() - start) * 1000
+    observability.metrics.observe(request.url.path, response.status_code, elapsed_ms)
+    response.headers["X-Request-Id"] = request_id
+    return response
+
+
+@app.get("/api/metrics")
+def api_metrics():
+    """In-process counters: requests/errors/latency per route + business counters."""
+    return observability.metrics.snapshot()
 
 
 # ── Request models ───────────────────────────────────────────────────────────
@@ -70,7 +99,12 @@ class ReviewsReq(BaseModel):
 # ── Routes ───────────────────────────────────────────────────────────────────
 @app.get("/health")
 def health():
-    return {"status": "ok", "db": atlas.DB_NAME}
+    try:
+        atlas.db.command("ping")
+        return {"status": "ok", "db": atlas.DB_NAME}
+    except Exception:
+        logger.exception("Atlas ping failed")
+        return {"status": "degraded", "db": atlas.DB_NAME}
 
 @app.get("/stats")
 def stats():

@@ -1,8 +1,8 @@
-fastapi
-uvicorn[standard]
-pymongo
-python-dotenv
-langchain
-langchain-anthropic
-langgraph
-langgraph-checkpoint-mongodb
+fastapi>=0.130,<0.150
+uvicorn[standard]>=0.30,<0.55
+pymongo>=4.10,<5
+python-dotenv>=1.0,<2
+langchain>=1.0,<2
+langchain-anthropic>=1.0,<2
+langgraph>=1.0,<2
+langgraph-checkpoint-mongodb>=0.4,<0.5

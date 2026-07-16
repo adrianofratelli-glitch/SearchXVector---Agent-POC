@@ -5,6 +5,7 @@ The tool docstrings and system prompt stay in Portuguese, since they drive the
 model's tool selection and the language of its answers.
 """
 
+import logging
 import os
 from langchain_anthropic import ChatAnthropic
 from langchain_core.tools import tool
@@ -12,6 +13,8 @@ from langgraph.prebuilt import create_react_agent
 from langgraph.checkpoint.mongodb import MongoDBSaver
 
 from atlas import db, safe_aggregate, _client, DB_NAME, get_search_indexes
+
+logger = logging.getLogger("searchxvector.agent")
 
 llm = ChatAnthropic(model="claude-sonnet-4-6", temperature=0)
 
@@ -164,10 +167,15 @@ _agent = create_react_agent(
 
 def run_agent(message: str, thread_id: str) -> dict:
     """Run the agent and return the answer plus a structured ReAct trace."""
-    response = _agent.invoke(
-        {"messages": [("human", message)]},
-        config={"configurable": {"thread_id": thread_id}},
-    )
+    try:
+        response = _agent.invoke(
+            {"messages": [("human", message)]},
+            config={"configurable": {"thread_id": thread_id}},
+        )
+    except Exception:
+        logger.exception("agent invocation failed thread_id=%s", thread_id)
+        return {"answer": "Ocorreu um erro ao processar sua mensagem. Tente novamente em instantes.",
+                "trace": []}
     msgs = response["messages"]
     answer = msgs[-1].content
     if isinstance(answer, list):

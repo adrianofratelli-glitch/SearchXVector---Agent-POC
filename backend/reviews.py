@@ -4,8 +4,11 @@ Finds the product, pulls its reviews from MongoDB, and the LLM summarizes them.
 The prompt is kept in Portuguese on purpose, since the summary is shown in the UI.
 """
 
+import logging
 from langchain_anthropic import ChatAnthropic
 from atlas import get_product_and_reviews
+
+logger = logging.getLogger("searchxvector.reviews")
 
 _llm = ChatAnthropic(model="claude-sonnet-4-6", temperature=0)
 
@@ -42,7 +45,13 @@ def summarize_reviews(query: str) -> dict:
         for r in reviews
     )
     msg = PROMPT.format(produto=produto["nome"], reviews=reviews_txt)
-    resp = _llm.invoke(msg)
+    try:
+        resp = _llm.invoke(msg)
+    except Exception:
+        logger.exception("review summarization LLM call failed produto=%s", produto.get("nome"))
+        return {"produto": produto, "reviews": reviews,
+                "summary": "Não foi possível gerar o resumo agora. Tente novamente em instantes.",
+                "nota_media": produto.get("avaliacao_media", 0), "via": via, "pipeline": pipeline}
     summary = resp.content if isinstance(resp.content, str) else \
         " ".join(b.get("text", "") for b in resp.content if isinstance(b, dict))
 

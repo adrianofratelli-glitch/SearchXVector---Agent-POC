@@ -4,6 +4,7 @@ Atlas Search, Vector Search, Hybrid RRF, and facet pipelines,
 exposed as pure functions for the FastAPI layer.
 """
 
+import logging
 import os
 import time
 from pymongo import MongoClient
@@ -12,6 +13,8 @@ from dotenv import load_dotenv
 
 # Load the .env at the project root (self-contained — does not depend on main.py)
 load_dotenv(os.path.join(os.path.dirname(__file__), "..", ".env"), override=False)
+
+logger = logging.getLogger("searchxvector.atlas")
 
 MONGODB_URI = os.getenv("MONGODB_URI")
 DB_NAME     = os.getenv("DB_NAME", "POC")
@@ -36,6 +39,7 @@ def safe_aggregate(collection: str, pipeline: list):
             return None, "synonym-analyzer"  # flag for graceful fallback
         return None, msg
     except Exception as e:
+        logger.exception("aggregate failed collection=%s", collection)
         return None, str(e)
 
 
@@ -49,6 +53,7 @@ def get_stats() -> tuple[dict, bool]:
         try:
             out[c] = db[c].estimated_document_count()
         except Exception:
+            logger.exception("estimated_document_count failed collection=%s", c)
             out[c] = 0
             degraded = True
     return out, degraded
@@ -69,6 +74,7 @@ def get_search_indexes(collection: str) -> list:
     try:
         idx = list(db[collection].aggregate([{"$listSearchIndexes": {}}], maxTimeMS=5000))
     except Exception:
+        logger.exception("listSearchIndexes failed collection=%s", collection)
         idx = []
     _index_cache[collection] = {"ts": now, "indexes": idx}
     return idx
@@ -170,6 +176,7 @@ def get_analytics(full: bool = False) -> dict:
     try:
         res = list(db["produtos"].aggregate(run_pipeline, maxTimeMS=timeout, allowDiskUse=True))
     except Exception as e:
+        logger.exception("analytics aggregate failed full=%s", full)
         return {"error": str(e)}
     elapsed = (time.time() - t0) * 1000
     data = res[0] if res else {}
@@ -277,6 +284,7 @@ def _get_reviewed():
         # distinct uses the produto_id index (~0.2s) instead of a $group scan
         id_list = db["avaliacoes"].distinct("produto_id")
     except Exception:
+        logger.exception("distinct produto_id failed")
         id_list = []
     prods, _ = safe_aggregate("produtos", [
         {"$match": {"produto_id": {"$in": id_list}}},
