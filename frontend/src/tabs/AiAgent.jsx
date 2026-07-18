@@ -4,7 +4,7 @@ import TextInput from "@leafygreen-ui/text-input";
 import Button from "@leafygreen-ui/button";
 import Badge from "@leafygreen-ui/badge";
 import { H3, Body, Subtitle } from "@leafygreen-ui/typography";
-import { askAgent } from "../api";
+import { askAgent, getMetrics } from "../api";
 import { T } from "../theme";
 import Leaf from "../components/Leaf";
 
@@ -30,7 +30,27 @@ export default function AiAgent() {
   const [history, setHistory] = useState([]);
   const [thread, setThread] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [tokens, setTokens] = useState(null);
   const endRef = useRef(null);
+
+  // Custo estimado (Sonnet: $3/Mtok entrada, $15/Mtok saída) com tokens reais
+  // reportados pelo backend em /api/metrics — inclui leituras de cache.
+  const loadTokens = async () => {
+    try {
+      const m = await getMetrics();
+      const c = m.counters || {};
+      const inTok = c.anthropic_input_tokens || 0;
+      const outTok = c.anthropic_output_tokens || 0;
+      if (inTok + outTok > 0) {
+        setTokens({
+          in: inTok, out: outTok,
+          cacheRead: c.anthropic_cache_read_tokens || 0,
+          usd: (inTok * 3 + outTok * 15) / 1_000_000,
+        });
+      }
+    } catch { /* badge é opcional */ }
+  };
+  useEffect(() => { loadTokens(); }, []);
 
   useEffect(() => { endRef.current?.scrollIntoView({ behavior: "smooth" }); }, [history, loading]);
 
@@ -46,6 +66,7 @@ export default function AiAgent() {
       setThread(res.thread_id);
       setHistory((h) => [...h, { role: "assistant", content: res.answer, trace: res.trace,
                                   ms: Math.round(performance.now() - t0) }]);
+      loadTokens();
     } catch (e) {
       setHistory((h) => [...h, { role: "assistant", content: "Erro: " + (e.message || e), error: true }]);
     } finally { setLoading(false); }
@@ -63,6 +84,12 @@ export default function AiAgent() {
         <Badge variant="green">🧠 Memória {thread ? `· #${thread.slice(0, 8)}` : "· nova conversa"}</Badge>
         <Badge variant="blue">⚙️ 4 ferramentas MongoDB</Badge>
         <Badge variant="darkgray">💾 checkpoints @ POC</Badge>
+        {tokens && (
+          <Badge variant="yellow">
+            🪙 {(tokens.in + tokens.out).toLocaleString("pt-BR")} tokens · ~${tokens.usd.toFixed(4)}
+            {tokens.cacheRead > 0 && ` · ${tokens.cacheRead.toLocaleString("pt-BR")} via cache`}
+          </Badge>
+        )}
         {history.length > 0 && (
           <Button size="xsmall" variant="default" darkMode
             onClick={() => { setHistory([]); setThread(null); }}>🔄 Nova conversa</Button>

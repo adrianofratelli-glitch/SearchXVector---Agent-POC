@@ -218,6 +218,11 @@ if __name__ == "__main__":
         show_status()
         sys.exit(0)
 
+    print("\n0️⃣  índices B-tree produto_id (lookups exatos e join de avaliações)")
+    for _coll in ("produtos", "produtos_vector", "avaliacoes"):
+        db[_coll].create_index("produto_id")
+        print(f"  ✓ {_coll}.produto_id")
+
     print("\n1️⃣  produtos_search (filtros dentro do $search)")
     changed_1 = patch_produtos_search()
 

@@ -8,15 +8,18 @@ model's tool selection and the language of its answers.
 import logging
 import os
 from langchain_anthropic import ChatAnthropic
+from langchain_core.messages import HumanMessage, SystemMessage
 from langchain_core.tools import tool
 from langgraph.prebuilt import create_react_agent
 from langgraph.checkpoint.mongodb import MongoDBSaver
 
+import observability
 from atlas import db, safe_aggregate, _client, DB_NAME, get_search_indexes
 
 logger = logging.getLogger("searchxvector.agent")
 
-llm = ChatAnthropic(model="claude-sonnet-4-6", temperature=0)
+# Model é configurável por env (ANTHROPIC_MODEL) — o default segue Sonnet.
+llm = ChatAnthropic(model=os.getenv("ANTHROPIC_MODEL", "claude-sonnet-4-6"), temperature=0, max_tokens=1024, default_headers={"api-key": os.getenv("ANTHROPIC_API_KEY", "")})
 
 
 # ── Pipeline builders — SINGLE source of truth ───────────────────────────────
@@ -158,11 +161,56 @@ Use as ferramentas disponíveis para buscar dados reais antes de responder.
 Ao apresentar preços, use o formato R$ X.XXX,XX.
 Sempre mencione avaliações e se o produto está em estoque ao recomendar."""
 
+# A thread_id's checkpointed history grows every turn — without trimming, a
+# long-running conversation resends its entire tool-call/result history to
+# Claude on every single message. Cap what's actually sent to the model
+# (the full history still lives in the checkpoint, untouched).
+MAX_AGENT_HISTORY_MESSAGES = 12
+
+
+def _trim_history(state: dict) -> dict:
+    msgs = state["messages"]
+    if len(msgs) > MAX_AGENT_HISTORY_MESSAGES:
+        msgs = msgs[-MAX_AGENT_HISTORY_MESSAGES:]
+        # A janela não pode começar em AIMessage com tool_calls órfãos nem em
+        # ToolMessage sem o AIMessage que o pediu — a API Anthropic responde 400.
+        # Avança até a primeira HumanMessage (equivale a trim_messages(start_on="human")).
+        start = next((i for i, m in enumerate(msgs) if isinstance(m, HumanMessage)), 0)
+        msgs = msgs[start:]
+    # Cache incremental do histórico: marcador cache_control móvel na última
+    # mensagem (em CÓPIA — o checkpoint guarda content como string simples).
+    if msgs and isinstance(msgs[-1].content, str) and msgs[-1].content:
+        marked = msgs[-1].model_copy(update={"content": [
+            {"type": "text", "text": msgs[-1].content,
+             "cache_control": {"type": "ephemeral"}}]})
+        msgs = list(msgs[:-1]) + [marked]
+    return {"llm_input_messages": msgs}
+
+
 _checkpointer = MongoDBSaver(_client, db_name=DB_NAME)
 _agent = create_react_agent(
     llm, [busca_semantica, buscar_produto, comparar_categoria, produtos_por_faixa_preco],
-    checkpointer=_checkpointer, prompt=SYSTEM_PROMPT,
+    checkpointer=_checkpointer,
+    # System + definições de tools formam o prefixo estável — cacheável entre
+    # todas as iterações do ReAct e entre threads.
+    prompt=SystemMessage(content=[{"type": "text", "text": SYSTEM_PROMPT,
+                                   "cache_control": {"type": "ephemeral"}}]),
+    pre_model_hook=_trim_history,
 )
+
+
+def _track_usage(msgs) -> None:
+    """Surfaces Claude token spend (incl. cache hits) at /api/metrics — one ReAct
+    invoke can carry several AIMessages (one per tool-call round), sum them all."""
+    for m in msgs:
+        usage = getattr(m, "usage_metadata", None)
+        if not usage:
+            continue
+        observability.metrics.bump("anthropic_input_tokens", usage.get("input_tokens", 0))
+        observability.metrics.bump("anthropic_output_tokens", usage.get("output_tokens", 0))
+        details = usage.get("input_token_details") or {}
+        observability.metrics.bump("anthropic_cache_read_tokens", details.get("cache_read", 0))
+        observability.metrics.bump("anthropic_cache_write_tokens", details.get("cache_creation", 0))
 
 
 def run_agent(message: str, thread_id: str) -> dict:
@@ -177,9 +225,12 @@ def run_agent(message: str, thread_id: str) -> dict:
         return {"answer": "Ocorreu um erro ao processar sua mensagem. Tente novamente em instantes.",
                 "trace": []}
     msgs = response["messages"]
+    _track_usage(msgs)
     answer = msgs[-1].content
     if isinstance(answer, list):
         answer = " ".join(b.get("text", "") for b in answer if isinstance(b, dict))
+    elif not isinstance(answer, str):
+        answer = str(answer)
 
     # Trace: pair each tool_call with its result
     pending, trace = {}, []

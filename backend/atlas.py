@@ -7,6 +7,7 @@ exposed as pure functions for the FastAPI layer.
 import logging
 import os
 import time
+from concurrent.futures import ThreadPoolExecutor
 from pymongo import MongoClient
 from pymongo.errors import PyMongoError, ExecutionTimeout
 from dotenv import load_dotenv
@@ -625,8 +626,12 @@ def hybrid_rrf(query: str, k=60, n_search=20, n_vector=20) -> dict:
     ]
 
     t0 = time.time()
-    search_res, err_s = safe_aggregate(search_coll, s_pipe)
-    vector_res, err_v = safe_aggregate("produtos_vector", v_pipe)
+    # As duas pernas são independentes — em paralelo o híbrido responde no
+    # tempo da perna mais lenta, não na soma das duas.
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        search_future = pool.submit(safe_aggregate, search_coll, s_pipe)
+        vector_res, err_v = safe_aggregate("produtos_vector", v_pipe)
+        search_res, err_s = search_future.result()
     elapsed = (time.time() - t0) * 1000
 
     if err_s or err_v:

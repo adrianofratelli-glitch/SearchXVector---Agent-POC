@@ -5,12 +5,16 @@ The prompt is kept in Portuguese on purpose, since the summary is shown in the U
 """
 
 import logging
+import os
 from langchain_anthropic import ChatAnthropic
+import observability
 from atlas import get_product_and_reviews
 
 logger = logging.getLogger("searchxvector.reviews")
 
-_llm = ChatAnthropic(model="claude-sonnet-4-6", temperature=0)
+# Resumo de reviews é tarefa simples de sumarização — Haiku entrega a mesma
+# qualidade por ~1/3 do custo; sobrescreva com REVIEWS_MODEL se necessário.
+_llm = ChatAnthropic(model=os.getenv("REVIEWS_MODEL", "claude-haiku-4-5"), temperature=0, max_tokens=512, default_headers={"api-key": os.getenv("ANTHROPIC_API_KEY", "")})
 
 PROMPT = """Você é um analista de avaliações de e-commerce. Com base APENAS nas avaliações
 reais abaixo, escreva um resumo conciso em português sobre o produto "{produto}".
@@ -52,8 +56,18 @@ def summarize_reviews(query: str) -> dict:
         return {"produto": produto, "reviews": reviews,
                 "summary": "Não foi possível gerar o resumo agora. Tente novamente em instantes.",
                 "nota_media": produto.get("avaliacao_media", 0), "via": via, "pipeline": pipeline}
-    summary = resp.content if isinstance(resp.content, str) else \
-        " ".join(b.get("text", "") for b in resp.content if isinstance(b, dict))
+    usage = getattr(resp, "usage_metadata", None) or {}
+    observability.metrics.bump("anthropic_input_tokens", usage.get("input_tokens", 0))
+    observability.metrics.bump("anthropic_output_tokens", usage.get("output_tokens", 0))
+    _details = usage.get("input_token_details") or {}
+    observability.metrics.bump("anthropic_cache_read_tokens", _details.get("cache_read", 0))
+    observability.metrics.bump("anthropic_cache_write_tokens", _details.get("cache_creation", 0))
+    if isinstance(resp.content, str):
+        summary = resp.content
+    elif isinstance(resp.content, list):
+        summary = " ".join(b.get("text", "") for b in resp.content if isinstance(b, dict))
+    else:
+        summary = str(resp.content)
 
     notas = [r["nota"] for r in reviews]
     return {
