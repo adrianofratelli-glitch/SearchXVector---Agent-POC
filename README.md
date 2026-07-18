@@ -1,12 +1,19 @@
 # Search & AI Agent POC — MongoDB Atlas
 
-A technical proof of concept showing how MongoDB Atlas can serve as the complete
-backend for search and AI workloads. It combines full-text search, semantic
-(vector) search, hybrid ranking, real-time analytics, RAG, and a tool-using AI
-agent over a synthetic marketplace catalog — all on a single platform.
+**The problem.** E-commerce teams typically stitch together a search engine for
+full-text queries, a vector database for semantic search and RAG, an analytics
+warehouse, and yet another store for AI-agent memory — four systems to sync,
+secure, and pay for.
+
+**The solution this POC demonstrates.** All of it runs on MongoDB Atlas alone:
+full-text search, semantic (vector) search, hybrid ranking, real-time
+analytics, Reviews RAG, and a tool-using LangGraph AI agent — over a synthetic
+20M-product marketplace catalog, on a single platform, with the data never
+leaving the database.
 
 The demo is configurable for any dataset through environment variables
-(`MONGODB_URI`, `DB_NAME`).
+(`MONGODB_URI`, `DB_NAME`), and every screen shows the exact MQL pipeline that
+executed — nothing is mocked.
 
 ![Atlas Search — full-text search with facets and highlights](docs/screenshots/atlas-search.png)
 
@@ -206,9 +213,6 @@ shows a notice if the index is still building.
 ├── start.sh                  Launches backend and frontend together
 └── README.md
 ```
-
-The repository also contains [`legacy-profiler-demo/`](legacy-profiler-demo/README.md),
-a separate Streamlit transaction-profiler demo unrelated to the marketplace POC.
 
 ## Stack
 

@@ -1,6 +1,8 @@
 # Env
 .env
 *.env
+.env.bak
+*.env.bak
 
 # Python
 __pycache__/
@@ -30,3 +32,6 @@ frontend/.env
 
 # Preview
 **/.claude/launch.json
+
+# graphify knowledge-graph output (local tooling artifact, not app code)
+graphify-out/
