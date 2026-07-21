@@ -14,7 +14,14 @@ logger = logging.getLogger("searchxvector.reviews")
 
 # Resumo de reviews é tarefa simples de sumarização — Haiku entrega a mesma
 # qualidade por ~1/3 do custo; sobrescreva com REVIEWS_MODEL se necessário.
-_llm = ChatAnthropic(model=os.getenv("REVIEWS_MODEL", "claude-haiku-4-5"), temperature=0, max_tokens=512, default_headers={"api-key": os.getenv("ANTHROPIC_API_KEY", "")})
+_llm = ChatAnthropic(
+    model=os.getenv("REVIEWS_MODEL", "claude-haiku-4-5"),
+    temperature=0,
+    max_tokens=512,
+    api_key="dummy",
+    anthropic_api_url=os.getenv("ANTHROPIC_BASE_URL"),
+    default_headers={"api-key": os.getenv("ANTHROPIC_API_KEY", "")},
+)
 
 PROMPT = """Você é um analista de avaliações de e-commerce. Com base APENAS nas avaliações
 reais abaixo, escreva um resumo conciso em português sobre o produto "{produto}".

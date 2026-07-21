@@ -19,7 +19,14 @@ from atlas import db, safe_aggregate, _client, DB_NAME, get_search_indexes
 logger = logging.getLogger("searchxvector.agent")
 
 # Model é configurável por env (ANTHROPIC_MODEL) — o default segue Sonnet.
-llm = ChatAnthropic(model=os.getenv("ANTHROPIC_MODEL", "claude-sonnet-4-6"), temperature=0, max_tokens=1024, default_headers={"api-key": os.getenv("ANTHROPIC_API_KEY", "")})
+llm = ChatAnthropic(
+    model=os.getenv("ANTHROPIC_MODEL", "claude-sonnet-4-6"),
+    temperature=0,
+    max_tokens=1024,
+    api_key="dummy",
+    anthropic_api_url=os.getenv("ANTHROPIC_BASE_URL"),
+    default_headers={"api-key": os.getenv("ANTHROPIC_API_KEY", "")},
+)
 
 
 # ── Pipeline builders — SINGLE source of truth ───────────────────────────────
