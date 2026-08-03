@@ -7,6 +7,7 @@ model's tool selection and the language of its answers.
 
 import logging
 import os
+from functools import lru_cache
 from langchain_anthropic import ChatAnthropic
 from langchain_core.messages import HumanMessage, SystemMessage
 from langchain_core.tools import tool
@@ -194,16 +195,24 @@ def _trim_history(state: dict) -> dict:
     return {"llm_input_messages": msgs}
 
 
-_checkpointer = MongoDBSaver(_client, db_name=DB_NAME)
-_agent = create_react_agent(
-    llm, [busca_semantica, buscar_produto, comparar_categoria, produtos_por_faixa_preco],
-    checkpointer=_checkpointer,
-    # System + definições de tools formam o prefixo estável — cacheável entre
-    # todas as iterações do ReAct e entre threads.
-    prompt=SystemMessage(content=[{"type": "text", "text": SYSTEM_PROMPT,
-                                   "cache_control": {"type": "ephemeral"}}]),
-    pre_model_hook=_trim_history,
-)
+@lru_cache(maxsize=1)
+def _get_agent():
+    """Build the stateful agent on first use, not while importing the module.
+
+    MongoDBSaver creates/checks its indexes during construction. Keeping that
+    work out of module import lets pure pipeline tests, CLI introspection and
+    health tooling load this module without requiring a reachable cluster.
+    """
+    checkpointer = MongoDBSaver(_client, db_name=DB_NAME)
+    return create_react_agent(
+        llm, [busca_semantica, buscar_produto, comparar_categoria, produtos_por_faixa_preco],
+        checkpointer=checkpointer,
+        # System + definições de tools formam o prefixo estável — cacheável entre
+        # todas as iterações do ReAct e entre threads.
+        prompt=SystemMessage(content=[{"type": "text", "text": SYSTEM_PROMPT,
+                                       "cache_control": {"type": "ephemeral"}}]),
+        pre_model_hook=_trim_history,
+    )
 
 
 def _track_usage(msgs) -> None:
@@ -223,7 +232,7 @@ def _track_usage(msgs) -> None:
 def run_agent(message: str, thread_id: str) -> dict:
     """Run the agent and return the answer plus a structured ReAct trace."""
     try:
-        response = _agent.invoke(
+        response = _get_agent().invoke(
             {"messages": [("human", message)]},
             config={"configurable": {"thread_id": thread_id}},
         )

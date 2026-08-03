@@ -1,3 +1,5 @@
+/* Shared component module intentionally exports the table, MQL block, and column factory. */
+/* eslint-disable react-refresh/only-export-components */
 import { useState } from "react";
 import { T, fmtBRL } from "../theme";
 

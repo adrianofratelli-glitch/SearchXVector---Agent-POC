@@ -1,18 +1,19 @@
 import { Overline } from "@leafygreen-ui/typography";
+import Icon from "@leafygreen-ui/icon";
 import Leaf from "./Leaf";
 import { T, fmtCount } from "../theme";
 
 const NAV = [
   { section: "BUSCA", items: [
-    { icon: "🔍", label: "Atlas Search", tab: 0 },
-    { icon: "⚡", label: "Search vs Vector", tab: 1 },
-    { icon: "🔀", label: "Hybrid RRF", tab: 2 },
-    { icon: "🎯", label: "Similares", tab: 3 },
+    { icon: "SearchIndex", label: "Atlas Search", tab: 0 },
+    { icon: "LightningBolt", label: "Search vs Vector", tab: 1 },
+    { icon: "Diagram3", label: "Hybrid RRF", tab: 2 },
+    { icon: "Relationship", label: "Similares", tab: 3 },
   ]},
   { section: "ANALYTICS & AI", items: [
-    { icon: "📊", label: "Analytics", tab: 4 },
-    { icon: "💬", label: "Reviews RAG", tab: 5 },
-    { icon: "🤖", label: "AI Agent", tab: 6 },
+    { icon: "Charts", label: "Analytics", tab: 4 },
+    { icon: "Read", label: "Reviews RAG", tab: 5 },
+    { icon: "Sparkle", label: "MongoDB Assistant", tab: 6 },
   ]},
 ];
 
@@ -24,7 +25,7 @@ export default function Sidebar({ active, onSelect, stats, offline = false }) {
   const indices = stats?.indices || [];
 
   return (
-    <div style={{
+    <div className="search-sidebar" style={{
       width: 240, minWidth: 240, background: T.sidebar, minHeight: "100vh",
       borderRight: `1px solid ${T.border}`, padding: "18px 14px", display: "flex",
       flexDirection: "column", gap: 4,
@@ -65,7 +66,7 @@ export default function Sidebar({ active, onSelect, stats, offline = false }) {
                   color: on ? T.green : T.text2, fontWeight: on ? 600 : 400, fontSize: 13,
                   transition: "background .15s",
                 }}>
-                <span style={{ fontSize: 14, opacity: on ? 1 : 0.55 }} aria-hidden="true">{it.icon}</span>
+                <Icon glyph={it.icon} size="large" role="presentation" />
                 <span>{it.label}</span>
               </div>
             );

@@ -57,7 +57,7 @@ export default function ReviewsRag() {
       {data?.error && <Banner variant="warning">{data.error}</Banner>}
 
       {data?.produto && (
-        <div style={{ display: "grid", gridTemplateColumns: "3fr 2fr", gap: 20 }}>
+        <div className="responsive-split" style={{ display: "grid", gridTemplateColumns: "3fr 2fr", gap: 20 }}>
           {/* LLM summary */}
           <div>
             <div style={{ background: T.surface, border: `1px solid ${T.border}`, borderRadius: 10, padding: "16px 20px" }}>

@@ -103,7 +103,7 @@ export default function AiAgent() {
           <Body style={{ color: T.text3, marginTop: 4, marginBottom: 16 }}>
             O agente escolhe a ferramenta certa e mostra o MQL que rodou.
           </Body>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, maxWidth: 720, margin: "0 auto" }}>
+          <div className="responsive-two-col" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, maxWidth: 720, margin: "0 auto" }}>
             {SUGGESTIONS.map((s) => (
               <Button key={s} variant="default" darkMode onClick={() => send(s)}
                 style={{ justifyContent: "flex-start" }}>{s}</Button>
@@ -189,7 +189,7 @@ function Msg({ msg }) {
                       textTransform: "uppercase", letterSpacing: "0.05em" }}>⚠ degradado</span>
                   )}
                 </div>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                <div className="responsive-two-col" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
                   <div>
                     <div style={{ fontSize: 10, color: T.text3, marginBottom: 4 }}>Pipeline MQL</div>
                     <pre style={{ margin: 0, padding: 10, background: T.surface, borderRadius: 6, fontSize: 11,

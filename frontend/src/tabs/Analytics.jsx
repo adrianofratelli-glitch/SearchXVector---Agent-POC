@@ -21,27 +21,34 @@ function Bar({ label, value, max, sub, color = T.green }) {
   );
 }
 
+function ModeToggle({ full, loading, onChange }) {
+  return (
+    <div style={{ display: "inline-flex", borderRadius: 6, overflow: "hidden", border: `1px solid ${T.border}`, marginLeft: 10, verticalAlign: "middle" }}>
+      {[[false, "Amostra 12k"], [true, "Base completa"]].map(([value, label]) => (
+        <button key={label} onClick={() => onChange(value)} disabled={loading} style={{
+          cursor: "pointer", fontSize: 11, fontFamily: T.font, padding: "5px 10px", border: "none",
+          background: full === value ? "rgba(0,237,100,0.15)" : T.surface,
+          color: full === value ? T.green : T.text3, fontWeight: full === value ? 700 : 400,
+        }}>{label}</button>
+      ))}
+    </div>
+  );
+}
+
 export default function Analytics() {
   const [full, setFull] = useState(false);
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    setLoading(true);
     getAnalytics(full).then(setData).catch(() => setData({ error: "falha" })).finally(() => setLoading(false));
   }, [full]);
 
-  const ModeToggle = () => (
-    <div style={{ display: "inline-flex", borderRadius: 6, overflow: "hidden", border: `1px solid ${T.border}`, marginLeft: 10, verticalAlign: "middle" }}>
-      {[[false, "Amostra 12k"], [true, "Base completa"]].map(([f, label]) => (
-        <button key={label} onClick={() => setFull(f)} disabled={loading} style={{
-          cursor: "pointer", fontSize: 11, fontFamily: T.font, padding: "5px 10px", border: "none",
-          background: full === f ? "rgba(0,237,100,0.15)" : T.surface,
-          color: full === f ? T.green : T.text3, fontWeight: full === f ? 700 : 400,
-        }}>{label}</button>
-      ))}
-    </div>
-  );
+  const changeMode = (value) => {
+    if (value === full) return;
+    setLoading(true);
+    setFull(value);
+  };
 
   if (loading) {
     return <Body style={{ color: T.text2 }}>
@@ -52,7 +59,7 @@ export default function Analytics() {
     return (
       <div>
         <Banner variant="danger" darkMode>{data.error}</Banner>
-        <div style={{ marginTop: 12 }}><ModeToggle /></div>
+        <div style={{ marginTop: 12 }}><ModeToggle full={full} loading={loading} onChange={changeMode} /></div>
       </div>
     );
   }
@@ -78,7 +85,7 @@ export default function Analytics() {
             ? `base completa: ${(data.geral?.amostra || 0).toLocaleString("pt-BR")} docs`
             : `amostra de ${(data.geral?.amostra || 0).toLocaleString("pt-BR")} docs ($sample p/ latência de demo)`}
         </span>
-        <ModeToggle />
+        <ModeToggle full={full} loading={loading} onChange={changeMode} />
       </Body>
 
       {/* Overview KPIs */}
@@ -96,7 +103,7 @@ export default function Analytics() {
         ))}
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 22 }}>
+      <div className="responsive-two-col" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 22 }}>
         <div>
           <Subtitle style={{ color: T.text, fontSize: 14, marginBottom: 12 }}>Produtos por categoria</Subtitle>
           {cats.slice(0, 8).map((c) => (
@@ -113,7 +120,7 @@ export default function Analytics() {
         </div>
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 22, marginTop: 22 }}>
+      <div className="responsive-two-col" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 22, marginTop: 22 }}>
         <div>
           <Subtitle style={{ color: T.text, fontSize: 14, marginBottom: 12 }}>Distribuição por faixa de preço ($bucket)</Subtitle>
           {faixas.map((f) => (

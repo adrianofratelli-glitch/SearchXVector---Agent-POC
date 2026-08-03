@@ -1,17 +1,18 @@
-import { useState, useEffect } from "react";
+import { lazy, Suspense, useEffect, useState } from "react";
 import LeafyGreenProvider from "@leafygreen-ui/leafygreen-provider";
 import { getStats } from "./api";
 import { T, fmtCount } from "./theme";
 import Sidebar from "./components/Sidebar";
 import KpiCard from "./components/KpiCard";
 import Leaf from "./components/Leaf";
-import AtlasSearch from "./tabs/AtlasSearch";
-import SearchVsVector from "./tabs/SearchVsVector";
-import HybridRRF from "./tabs/HybridRRF";
-import AiAgent from "./tabs/AiAgent";
-import Analytics from "./tabs/Analytics";
-import Similares from "./tabs/Similares";
-import ReviewsRag from "./tabs/ReviewsRag";
+
+const AtlasSearch = lazy(() => import("./tabs/AtlasSearch"));
+const SearchVsVector = lazy(() => import("./tabs/SearchVsVector"));
+const HybridRRF = lazy(() => import("./tabs/HybridRRF"));
+const AiAgent = lazy(() => import("./tabs/AiAgent"));
+const Analytics = lazy(() => import("./tabs/Analytics"));
+const Similares = lazy(() => import("./tabs/Similares"));
+const ReviewsRag = lazy(() => import("./tabs/ReviewsRag"));
 
 const TABS = [AtlasSearch, SearchVsVector, HybridRRF, Similares, Analytics, ReviewsRag, AiAgent];
 
@@ -46,19 +47,19 @@ export default function App() {
 
   return (
     <LeafyGreenProvider darkMode>
-      <div style={{ display: "flex", minHeight: "100vh" }}>
+      <div className="search-shell" style={{ display: "flex", minHeight: "100vh" }}>
         <Sidebar active={tab} onSelect={setTab} stats={stats} offline={offline} />
 
-        <div style={{ flex: 1, padding: "0 28px 40px", maxWidth: 1320 }}>
+        <main className="search-main" style={{ flex: 1, padding: "0 28px 40px", maxWidth: 1320 }}>
           {/* Header */}
           <div style={{ padding: "26px 0 18px", borderBottom: `1px solid ${T.border}`, marginBottom: 20 }}>
             <div className="kicker" style={{ marginBottom: 10 }}>MongoDB Atlas · Proof of Concept</div>
             <div style={{ display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
               <Leaf size={28} />
-              <span style={{ fontSize: 34, fontWeight: 800, color: T.text,
-                             letterSpacing: "-0.04em", lineHeight: 1.05 }}>
+              <h1 style={{ margin: 0, fontSize: 34, fontWeight: 800, color: T.text,
+                           letterSpacing: "-0.04em", lineHeight: 1.05 }}>
                 Marketplace <span style={{ color: T.green }}>×</span> Atlas Search
-              </span>
+              </h1>
               <div style={{ marginLeft: "auto", fontSize: 11.5, color: T.text3, fontFamily: T.mono }}>
                 {offline ? "⚠ backend offline" : "db: POC · voyage-4 autoEmbed · LangGraph ReAct"}
               </div>
@@ -94,9 +95,11 @@ export default function App() {
 
           {/* Active tab — navigation lives only in the sidebar, no duplicate tab strip */}
           <div className="fade-up" key={tab} style={{ paddingTop: 18 }}>
-            <ActiveTab />
+            <Suspense fallback={<div style={{ color: T.text2, padding: "28px 0" }}>Carregando módulo…</div>}>
+              <ActiveTab />
+            </Suspense>
           </div>
-        </div>
+        </main>
       </div>
     </LeafyGreenProvider>
   );

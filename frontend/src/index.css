@@ -3,16 +3,18 @@
 
 :root {
   --bg-primary: #001E2B;
-  --bg-secondary: #002838;
-  --bg-card: #003345;
-  --bg-card-hover: #004058;
-  --border-subtle: rgba(255, 255, 255, 0.06);
+  --bg-secondary: #112733;
+  --bg-card: #1C2D38;
+  --bg-card-hover: #263C49;
+  --border-subtle: #3D4F58;
   --border-accent: rgba(0, 237, 100, 0.25);
-  --text-pri: #fafafa;
-  --text-sec: #b8d8e8;
-  --text-muted: #7fa8bc;
+  --text-pri: #E8EDEB;
+  --text-sec: #C1C7C6;
+  --text-muted: #889397;
   --accent: #00ED64;
-  --accent-glow: rgba(0, 237, 100, 0.15);
+  --accent-glow: rgba(0, 237, 100, 0.1);
+  --link: #0498EC;
+  color-scheme: dark;
 }
 
 * { box-sizing: border-box; }
@@ -43,12 +45,17 @@ body::after {
 
 ::-webkit-scrollbar { width: 6px; height: 6px; }
 ::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: rgba(0,237,100,0.2); border-radius: 3px; }
-::-webkit-scrollbar-thumb:hover { background: rgba(0,237,100,0.35); }
+::-webkit-scrollbar-thumb { background: var(--border-subtle); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: #5C6C75; }
 
 code, pre { font-family: "JetBrains Mono", Menlo, monospace; }
 
 ::selection { background: rgba(0,237,100,0.25); }
+
+:focus-visible {
+  outline: 2px solid var(--link);
+  outline-offset: 3px;
+}
 
 /* Kicker — label mono com traço, acima do título (estilo .pillar-badge) */
 .kicker {
@@ -116,7 +123,9 @@ code, pre { font-family: "JetBrains Mono", Menlo, monospace; }
 /* Nav da sidebar */
 .nav-item { transition: background 0.18s ease, color 0.18s ease; }
 .nav-item:hover { background: rgba(255,255,255,0.04) !important; color: var(--text-pri) !important; }
-.nav-link:focus-visible { outline: 2px solid var(--accent, #00ed64); outline-offset: -2px; }
+.nav-link:focus-visible { outline: 2px solid var(--link); outline-offset: -2px; }
+.nav-link svg { color: currentColor; opacity: 0.78; }
+.nav-link[aria-current="page"] svg { opacity: 1; }
 
 /* Cards de resultado (estilo .pillar-card: lift + sombra + borda accent) */
 .result-card { transition: transform 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease; }
@@ -147,4 +156,40 @@ code, pre { font-family: "JetBrains Mono", Menlo, monospace; }
 .divider {
   height: 1px; border: none;
   background: linear-gradient(90deg, transparent, var(--border-accent), transparent);
+}
+
+@media (max-width: 760px) {
+  .search-shell {
+    flex-direction: column;
+  }
+
+  .search-sidebar {
+    width: 100% !important;
+    min-width: 0 !important;
+    min-height: auto !important;
+    border-right: 0 !important;
+    border-bottom: 1px solid var(--border-subtle);
+  }
+
+  .search-main {
+    width: 100%;
+    padding: 0 16px 32px !important;
+  }
+
+  .responsive-two-col,
+  .responsive-three-col,
+  .responsive-split {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
 }

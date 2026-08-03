@@ -26,9 +26,11 @@ sleep 1
 echo "→ starting backend (FastAPI :$BACKEND_PORT)…"
 cd "$ROOT/backend"
 if [ -d "$ROOT/.venv" ]; then source "$ROOT/.venv/bin/activate"; fi
+UVICORN_BIN="$ROOT/.venv/bin/uvicorn"
+[ -x "$UVICORN_BIN" ] || UVICORN_BIN="uvicorn"
 # allow the frontend origin in CORS
 export CORS_ORIGINS="http://localhost:$FRONTEND_PORT,http://127.0.0.1:$FRONTEND_PORT"
-nohup uvicorn main:app --host 0.0.0.0 --port "$BACKEND_PORT" > /tmp/poc-backend.log 2>&1 &
+nohup "$UVICORN_BIN" main:app --host 0.0.0.0 --port "$BACKEND_PORT" > /tmp/poc-backend.log 2>&1 &
 
 # ── 3. Vite frontend ─────────────────────────────────────────────────
 echo "→ starting frontend (Vite :$FRONTEND_PORT)…"

@@ -105,7 +105,7 @@ export default function SearchVsVector() {
                 : "corpora distintos: Search em 20M · Vector em 500K (amostra)"}
             </Badge>
           </div>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 14, marginTop: 10 }}>
+          <div className="responsive-three-col" style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 14, marginTop: 10 }}>
             <Col title="🔤 Atlas Search" subtitle={data.mode === "phrase" ? "frase literal" : "compound + fuzzy"}
                  accent={T.green} count={data.search.results.length} ms={data.search.elapsed_ms}>
               {data.search.results.length === 0
