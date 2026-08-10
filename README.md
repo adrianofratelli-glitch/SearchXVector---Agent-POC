@@ -1,128 +1,60 @@
 # Search & AI Agent POC — MongoDB Atlas
 
-**The problem.** E-commerce teams typically stitch together a search engine for
-full-text queries, a vector database for semantic search and RAG, an analytics
-warehouse, and yet another store for AI-agent memory — four systems to sync,
-secure, and pay for.
+Most e-commerce stacks glue together a search engine, a vector database, an analytics warehouse and a store for agent memory. This POC runs all four on MongoDB Atlas alone, over a synthetic 20M-product catalog.
 
-**The solution this POC demonstrates.** All of it runs on MongoDB Atlas alone:
-full-text search, semantic (vector) search, hybrid ranking, real-time
-analytics, Reviews RAG, and a tool-using LangGraph AI agent — over a synthetic
-20M-product marketplace catalog, on a single platform, with the data never
-leaving the database.
-
-The demo is configurable for any dataset through environment variables
-(`MONGODB_URI`, `DB_NAME`), and every screen shows the exact MQL pipeline that
-executed — nothing is mocked.
-
-![Atlas Search — full-text search with facets and highlights](docs/screenshots/atlas-search.png)
-
-## Architecture
+Seven tabs, one Atlas capability each. Every screen prints the MQL that actually ran — nothing is mocked. Point it at any dataset via `MONGODB_URI` / `DB_NAME`.
 
 ```
 React + LeafyGreen  ──axios──►  FastAPI  ──►  MongoDB Atlas
-  (frontend/ :5273)             (backend/ :8200)      (POC)
+     (:5273)                     (:8200)
 ```
 
-| Layer       | Technology                                              |
-|-------------|---------------------------------------------------------|
-| UI          | React 18 + Vite + LeafyGreen (MongoDB design system)    |
-| API         | FastAPI (`backend/`)                                    |
-| AI agent    | LangGraph (ReAct pattern)                               |
-| LLM         | Claude Sonnet 4.6 (Anthropic)                           |
-| Embeddings  | Voyage AI `voyage-4` via Atlas autoEmbed                |
-| Database    | MongoDB Atlas 8.0+                                       |
-| Agent memory| `MongoDBSaver` — checkpoints keyed by `thread_id`       |
+## The demo, tab by tab
 
-## Features
+**1. Atlas Search** — full-text over the catalog: autocomplete, fuzzy (`"adidass"` → Adidas), clickable facets via `$searchMeta`, highlighting, match counts, `scoreDetails`. Filters run inside `$search` when the index allows it, so counts reflect them; otherwise the app falls back and says so.
 
-The UI is organized into seven tabs, each demonstrating a distinct Atlas capability.
+![Atlas Search tab: facets, highlights and total match count](docs/screenshots/atlas-search.png)
 
-**Atlas Search** — Full-text search over the product catalog: autocomplete,
-fuzzy matching (`"adidass"` → Adidas), clickable faceted navigation via
-`$searchMeta` (category chips + price buckets), native highlighting, total
-match counts, compound queries, `scoreDetails` relevance transparency, and an
-optional synonym mapping. When the index supports it, price/stock/category
-filters run inside `$search` (`compound.filter`) so the match count reflects
-the filters; otherwise the app falls back to a post-`$match` and flags it.
+**2. Search vs Vector** — the same query on both engines, side by side. Exact-phrase lexical returns **zero** for `"academia em casa"`; vector search understands the intent. Each engine reports its own latency.
 
-**Search vs Vector** — Side-by-side comparison of lexical search and semantic
-search, with two lexical modes: *exact phrase* (conceptual queries such as
-`"academia em casa"` return **zero**) and *compound* (the same e-commerce
-operator from tab 1 — a fair baseline that still loses to vector search on
-meaning). Each engine reports its own latency.
+![Lexical search returning zero next to vector search returning relevant products](docs/screenshots/search-vs-vector.png)
 
-**Hybrid RRF** — Two engines, switchable in the UI: the native `$rankFusion`
-stage (MongoDB 8.1+, fusion happens server-side in a single aggregation) and
-an application-side Reciprocal Rank Fusion (`score = Σ 1 / (k + rankᵢ)`) with
-adjustable `k` and per-engine result counts, kept as the educational view.
-When `$rankFusion` requirements aren't met, the app falls back gracefully and
-says why. Fusion is keyed by `produto_id`.
+**3. Hybrid RRF** — native `$rankFusion` (MongoDB 8.1+, fused server-side in one aggregation) or application-side RRF with adjustable `k`, kept as the educational view. Falls back with a reason when `$rankFusion` requirements aren't met.
 
-**Similares** — Vector "more like this" using a product's description as the
-query, with native pre-filtering: the category and stock filters run inside
-`$vectorSearch` rather than as a post-processing step.
+![Hybrid tab running native $rankFusion with per-engine ranks](docs/screenshots/hybrid-rrf.png)
 
-**Analytics** — A single `$facet` pipeline runs several aggregations in parallel
-on the server, positioning MongoDB as an analytical engine over the catalog.
-Defaults to a 12k `$sample` for demo latency, with a toggle to run the same
-pipeline over the full collection and compare timings.
+**4. Similares** — vector "more like this" from a product description, with category and stock filters running *inside* `$vectorSearch`, not after it.
 
-**Reviews RAG** — A real `$search` query finds the most relevant product that
-has reviews, the reviews are pulled from MongoDB, and Claude summarizes them
-grounded strictly in that data. The executed pipelines are shown in the UI.
+![Similar-products results with pre-filtering applied inside $vectorSearch](docs/screenshots/similares.png)
 
-**AI Agent** — A LangGraph ReAct agent with four MongoDB tools
-(`busca_semantica`, `buscar_produto`, `comparar_categoria`,
-`produtos_por_faixa_preco`), long-term memory via `MongoDBSaver` (with
-follow-up suggestions that exercise the thread memory), and a transparent
-trace: the pipelines shown in the UI are built by the same functions the
-tools execute — byte-for-byte what ran.
+**5. Analytics** — one `$facet` pipeline running several aggregations in parallel on the server. Defaults to a 12k `$sample`; toggle to run over the full collection and compare timings.
 
-## Screenshots
+![Analytics tab: parallel $facet aggregations over the catalog](docs/screenshots/analytics.png)
 
-| | |
-|---|---|
-| **Search vs Vector** — exact phrase returns zero, semantic search understands the intent | **Hybrid RRF** — native `$rankFusion` running server-side |
-| ![Search vs Vector](docs/screenshots/search-vs-vector.png) | ![Hybrid RRF](docs/screenshots/hybrid-rrf.png) |
-| **Similares** — vector "more like this" with pre-filtering inside `$vectorSearch` | **Analytics** — parallel `$facet` aggregations over the catalog |
-| ![Similares](docs/screenshots/similares.png) | ![Analytics](docs/screenshots/analytics.png) |
+**6. Reviews RAG** — `$search` finds the most relevant product with reviews, MongoDB returns them, Claude summarizes grounded strictly in that data.
 
-**AI Agent** — LangGraph ReAct agent with MongoDB tools and a transparent MQL trace:
+**7. AI Agent** — a LangGraph ReAct agent with four MongoDB tools, long-term memory via `MongoDBSaver`, and a trace built by the same functions the tools execute — byte-for-byte what ran.
 
-![AI Agent](docs/screenshots/ai-agent.png)
+![AI Agent tab with tool calls and the MQL trace](docs/screenshots/ai-agent.png)
 
 ## Collections
 
 ```
-POC (database)
-├── produtos          Product catalog (20M)  — Atlas Search index: produtos_search
-├── produtos_vector   Embedded subset (500K) — Vector Search index: produtos_vector (voyage-4)
-│                                            — Atlas Search index: produtos_vector_search
-├── avaliacoes        Product reviews         — used by Reviews RAG and the agent
-└── checkpoints       LangGraph agent memory
+POC
+├── produtos          20M products      — Atlas Search: produtos_search
+├── produtos_vector   500K subset       — Vector Search: produtos_vector (voyage-4, autoEmbed)
+│                                       — Atlas Search: produtos_vector_search
+├── avaliacoes        reviews           — Reviews RAG + agent
+└── checkpoints       LangGraph memory
 ```
 
-> **Why a 500K subset for vectors?** Auto-embedding 20M descriptions is a
-> deliberate cost/build-time decision, not a platform limitation — the subset
-> is a representative `$sample` of the catalog. The extra lexical index on
-> `produtos_vector` (`produtos_vector_search`) exists so hybrid search runs
-> both engines over the **same corpus**, which native `$rankFusion` requires
-> (its sub-pipelines target a single collection). The app detects available
-> indexes via `$listSearchIndexes` and degrades gracefully when one is missing.
+The 500K vector subset is a cost/build-time decision, not a limit — it's a representative `$sample`. The extra lexical index on `produtos_vector` exists because native `$rankFusion` needs both sub-pipelines on the same collection. The app detects available indexes via `$listSearchIndexes` and degrades gracefully.
 
 ## Setup
 
-### Prerequisites
+Requires Atlas 8.0+ (8.1+ for native `$rankFusion`), Python 3.11+, Node 18+, and an Anthropic key.
 
-- MongoDB Atlas cluster 8.0+ (8.1+ for native `$rankFusion` in the Hybrid tab;
-  on 8.0 the app falls back to application-side RRF and flags it)
-- Anthropic API key (Claude)
-- Python 3.11+ and Node 18+
-
-### Environment variables
-
-Create a `.env` file at the repository root:
+`.env` at the repo root:
 
 ```env
 MONGODB_URI=mongodb+srv://<user>:<password>@<cluster>.mongodb.net/
@@ -130,94 +62,29 @@ DB_NAME=POC
 ANTHROPIC_API_KEY=sk-ant-...
 ```
 
-### Search indexes (one-time)
-
-With the `.env` in place, apply the index changes the demo expects — patches
-`produtos_search` (filterable types) and creates `produtos_vector_search`
-(same-corpus hybrid / native `$rankFusion`), idempotently:
-
 ```bash
-python3 setup_search_indexes.py           # apply + wait for READY
-python3 setup_search_indexes.py --status  # check build progress later
+python3 setup_search_indexes.py    # one-time, idempotent; --status to check progress
+bash start.sh                      # backend + frontend → http://localhost:5273
 ```
 
-The app degrades gracefully while indexes are building or missing — the UI
-badges show which fallback is active.
+Custom ports: `BACKEND_PORT=8201 FRONTEND_PORT=5274 bash start.sh`. Manual run: `uvicorn main:app --port 8200` in `backend/`, `npm run dev` in `frontend/`.
 
-### Run (backend + frontend)
+## Synonyms (optional)
 
-```bash
-bash start.sh
-```
-
-Then open http://localhost:5273. Ports are configurable:
-`BACKEND_PORT=8201 FRONTEND_PORT=5274 bash start.sh`.
-
-### Run manually (two terminals)
-
-```bash
-# Terminal 1 — backend
-cd backend && pip install -r requirements.txt && uvicorn main:app --port 8200
-
-# Terminal 2 — frontend
-cd frontend && npm install && npm run dev
-```
-
-See [`frontend/README.md`](frontend/README.md) and
-[`backend/README.md`](backend/README.md) for component-level details.
-
-## Configuring synonyms in the Atlas UI
-
-The synonyms toggle in the Atlas Search tab relies on a mapping named
-`sinonimos_produtos` on the `produtos_search` index.
-
-1. Atlas UI → cluster → Atlas Search → `produtos_search` → Synonyms →
-   Add synonym mapping.
-2. Name: `sinonimos_produtos`; source collection: `sinonimos`; analyzer:
-   `lucene.portuguese`.
-3. Insert the following documents into the `sinonimos` collection (Atlas UI or
-   Compass):
+The synonyms toggle needs a mapping named `sinonimos_produtos` on `produtos_search`: Atlas UI → Atlas Search → Synonyms → source collection `sinonimos`, analyzer `lucene.portuguese`. Then insert documents like:
 
 ```json
 [
   { "mappingType": "equivalent", "synonyms": ["notebook", "laptop", "computador portátil"] },
-  { "mappingType": "equivalent", "synonyms": ["tênis", "calçado esportivo", "sneaker"] },
   { "mappingType": "equivalent", "synonyms": ["celular", "smartphone", "telefone"] },
-  { "mappingType": "equivalent", "synonyms": ["fone", "headphone", "fone de ouvido", "earphone"] },
-  { "mappingType": "equivalent", "synonyms": ["tv", "televisão", "televisor"] },
-  { "mappingType": "equivalent", "synonyms": ["geladeira", "refrigerador", "frigobar"] },
-  { "mappingType": "equivalent", "synonyms": ["academia", "musculação", "ginástica"] },
   { "mappingType": "explicit", "input": ["presente"], "synonyms": ["kit", "combo", "caixa"] }
 ]
 ```
 
-The index rebuilds after the mapping is saved (about two minutes). The toggle
-shows a notice if the index is still building.
-
-> Note: the application UI is intentionally in Portuguese, since the demo
-> targets a Brazilian audience.
-
-## Project structure
-
-```
-.
-├── frontend/                 React 18 + Vite + LeafyGreen
-│   ├── src/tabs/             One component per feature tab
-│   └── src/components/       Sidebar, KpiCard, ProductTable, Leaf
-├── backend/                  FastAPI
-│   ├── atlas.py              MongoDB connection and pipelines (search, vector, RRF, facets)
-│   ├── agent.py              LangGraph ReAct agent and MQL trace reconstruction
-│   ├── reviews.py            Reviews RAG summarization
-│   └── main.py               REST routes, CORS, request models
-├── populate_marketplace.py   Generates the synthetic catalog and reviews
-├── start.sh                  Launches backend and frontend together
-└── README.md
-```
+The index rebuilds in about two minutes; the toggle warns while it's building.
 
 ## Stack
 
-![MongoDB Atlas](https://img.shields.io/badge/MongoDB%20Atlas-8.0-00ED64?style=flat&logo=mongodb&logoColor=white)
-![FastAPI](https://img.shields.io/badge/FastAPI-0.110-009688?style=flat&logo=fastapi&logoColor=white)
-![React](https://img.shields.io/badge/React-18-61DAFB?style=flat&logo=react&logoColor=black)
-![LangGraph](https://img.shields.io/badge/LangGraph-ReAct-7C6DD8?style=flat)
-![Claude](https://img.shields.io/badge/Claude-Sonnet%204.6-FF6B4A?style=flat)
+React 18 + Vite + LeafyGreen · FastAPI · LangGraph (ReAct) · Claude Sonnet 4.6 · Voyage `voyage-4` via Atlas autoEmbed · MongoDB Atlas 8.0+.
+
+UI copy is in Portuguese on purpose (Brazilian audience). Component details: [`frontend/README.md`](frontend/README.md) · [`backend/README.md`](backend/README.md).
