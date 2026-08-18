@@ -67,7 +67,7 @@ python3 setup_search_indexes.py    # uma vez, idempotente; --status para acompan
 bash start.sh                      # backend + frontend → http://localhost:5273
 ```
 
-Portas customizadas: `BACKEND_PORT=8201 FRONTEND_PORT=5274 bash start.sh`. Execução manual: `uvicorn main:app --port 8200` em `backend/`, `npm run dev` em `frontend/`.
+O launcher serve o build otimizado do frontend sem watcher; use `POV_DEV=1 bash start.sh` para HMR. O build só é refeito quando fontes, lockfile ou configuração mudam. Portas customizadas: `BACKEND_PORT=8201 FRONTEND_PORT=5274 bash start.sh`.
 
 ## Sinônimos (opcional)
 

@@ -10,6 +10,8 @@ import os
 import time
 import uuid
 import warnings
+from threading import BoundedSemaphore
+from uuid import UUID
 from uuid import uuid4
 from dotenv import load_dotenv
 
@@ -17,9 +19,10 @@ from dotenv import load_dotenv
 load_dotenv(os.path.join(os.path.dirname(__file__), "..", ".env"), override=True)
 warnings.filterwarnings("ignore")
 
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel, Field
+from fastapi.responses import JSONResponse, Response
+from pydantic import BaseModel, Field, model_validator
 
 import observability
 import atlas
@@ -64,6 +67,11 @@ def api_metrics():
     return observability.metrics.snapshot()
 
 
+@app.get("/metrics", include_in_schema=False)
+def prometheus_metrics():
+    return Response(observability.metrics.prometheus(), media_type="text/plain; version=0.0.4")
+
+
 # ── Request models ───────────────────────────────────────────────────────────
 class SearchReq(BaseModel):
     query: str = Field(..., min_length=1, max_length=500)
@@ -84,13 +92,19 @@ class HybridReq(BaseModel):
     n_vector: int = Field(20, ge=1, le=100)
 
 class AgentReq(BaseModel):
-    message: str
-    thread_id: str | None = None
+    message: str = Field(..., min_length=1, max_length=4000)
+    thread_id: UUID | None = None
 
 class SimilarReq(BaseModel):
-    produto_id: str | None = None
-    nome: str | None = None
+    produto_id: str | None = Field(default=None, min_length=1, max_length=120)
+    nome: str | None = Field(default=None, min_length=1, max_length=300)
     same_category: bool = True
+
+    @model_validator(mode="after")
+    def require_product_reference(self):
+        if not self.produto_id and not self.nome:
+            raise ValueError("produto_id or nome is required")
+        return self
 
 class ReviewsReq(BaseModel):
     query: str = Field(..., min_length=1, max_length=500)
@@ -104,7 +118,12 @@ def health():
         return {"status": "ok", "db": atlas.DB_NAME}
     except Exception:
         logger.exception("Atlas ping failed")
-        return {"status": "degraded", "db": atlas.DB_NAME}
+        return JSONResponse({"status": "degraded", "db": atlas.DB_NAME}, status_code=503)
+
+
+@app.get("/health/live")
+def liveness():
+    return {"status": "alive"}
 
 @app.get("/stats")
 def stats():
@@ -144,12 +163,20 @@ def hybrid_native(req: CompareReq):
     """Hybrid search using the NATIVE $rankFusion stage (8.1+), with an RRF fallback on 8.0."""
     return atlas.hybrid_native(req.query)
 
+_ai_slots = BoundedSemaphore(max(1, int(os.getenv("AI_MAX_CONCURRENCY", os.getenv("AGENT_MAX_CONCURRENCY", "4")))))
+
+
 @app.post("/agent")
 def agent_route(req: AgentReq):
-    thread_id = req.thread_id or str(uuid.uuid4())
-    out = run_agent(req.message, thread_id)
-    out["thread_id"] = thread_id
-    return out
+    if not _ai_slots.acquire(blocking=False):
+        raise HTTPException(status_code=429, detail="AI concurrency limit reached; retry shortly.")
+    try:
+        thread_id = str(req.thread_id or uuid.uuid4())
+        out = run_agent(req.message, thread_id)
+        out["thread_id"] = thread_id
+        return out
+    finally:
+        _ai_slots.release()
 
 # The analytics $facet is costly to repeat on every refresh; cache 5 min per mode
 _analytics_cache = {}  # "sample"/"full" -> {"data": dict, "ts": float}
@@ -172,4 +199,9 @@ def similar(req: SimilarReq):
 
 @app.post("/reviews-rag")
 def reviews_rag(req: ReviewsReq):
-    return summarize_reviews(req.query)
+    if not _ai_slots.acquire(blocking=False):
+        raise HTTPException(status_code=429, detail="AI concurrency limit reached; retry shortly.")
+    try:
+        return summarize_reviews(req.query)
+    finally:
+        _ai_slots.release()

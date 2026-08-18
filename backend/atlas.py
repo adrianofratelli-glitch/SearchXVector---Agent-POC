@@ -21,7 +21,13 @@ MONGODB_URI = os.getenv("MONGODB_URI")
 DB_NAME     = os.getenv("DB_NAME", "POC")
 QUERY_TIMEOUT_MS = 10_000
 
-_client = MongoClient(MONGODB_URI, serverSelectionTimeoutMS=5000)
+_client = MongoClient(
+    MONGODB_URI,
+    serverSelectionTimeoutMS=5000,
+    connectTimeoutMS=5000,
+    socketTimeoutMS=15000,
+    maxPoolSize=max(1, int(os.getenv("MONGODB_MAX_POOL_SIZE", "50"))),
+)
 db = _client[DB_NAME]  # lazy connection — only connects on the first query
 
 
@@ -38,10 +44,11 @@ def safe_aggregate(collection: str, pipeline: list):
             return None, "Índice não encontrado. Verifique se o Search/Vector index está READY no Atlas."
         if "synonym" in msg.lower():
             return None, "synonym-analyzer"  # flag for graceful fallback
-        return None, msg
-    except Exception as e:
+        logger.warning("aggregate rejected collection=%s", collection, exc_info=True)
+        return None, "Consulta MongoDB rejeitada. Consulte o request-id nos logs do backend."
+    except Exception:
         logger.exception("aggregate failed collection=%s", collection)
-        return None, str(e)
+        return None, "Falha interna ao executar a consulta MongoDB."
 
 
 # ── Collection stats ─────────────────────────────────────────────────────────
@@ -176,9 +183,9 @@ def get_analytics(full: bool = False) -> dict:
     t0 = time.time()
     try:
         res = list(db["produtos"].aggregate(run_pipeline, maxTimeMS=timeout, allowDiskUse=True))
-    except Exception as e:
+    except Exception:
         logger.exception("analytics aggregate failed full=%s", full)
-        return {"error": str(e)}
+        return {"error": "Falha ao executar a agregação analítica."}
     elapsed = (time.time() - t0) * 1000
     data = res[0] if res else {}
     geral = (data.get("geral") or [{}])[0]

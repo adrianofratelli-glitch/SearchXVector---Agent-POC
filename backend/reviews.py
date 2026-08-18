@@ -21,6 +21,8 @@ _llm = ChatAnthropic(
     api_key="dummy",
     anthropic_api_url=os.getenv("ANTHROPIC_BASE_URL"),
     default_headers={"api-key": os.getenv("ANTHROPIC_API_KEY", "")},
+    timeout=float(os.getenv("ANTHROPIC_TIMEOUT_SECONDS", "45")),
+    max_retries=int(os.getenv("ANTHROPIC_MAX_RETRIES", "2")),
 )
 
 PROMPT = """Você é um analista de avaliações de e-commerce. Com base APENAS nas avaliações

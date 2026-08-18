@@ -1,11 +1,19 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
-import { nodePolyfills } from 'vite-plugin-node-polyfills'
+import { createRequire } from 'node:module'
 
-// LeafyGreen puxa deps que usam globais Node (Buffer/process/stream) — polyfill p/ o browser
+const require = createRequire(import.meta.url)
+
 export default defineConfig({
-  plugins: [
-    react(),
-    nodePolyfills({ globals: { Buffer: true, global: true, process: true } }),
-  ],
+  plugins: [react()],
+  define: { global: 'globalThis' },
+  resolve: {
+    alias: {
+      buffer: require.resolve('buffer/'),
+      events: require.resolve('events/'),
+      process: require.resolve('process/browser'),
+      stream: require.resolve('stream-browserify'),
+      util: require.resolve('util/'),
+    },
+  },
 })

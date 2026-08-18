@@ -13,14 +13,21 @@ ROOT="$(pwd)"
 
 BACKEND_PORT="${BACKEND_PORT:-8200}"
 FRONTEND_PORT="${FRONTEND_PORT:-5273}"
+BACKEND_HOST="${BACKEND_HOST:-127.0.0.1}"
+FRONTEND_HOST="${FRONTEND_HOST:-127.0.0.1}"
 
 echo "🍃 Starting the Search & Vector POC (LeafyGreen)…"
 echo "   backend :$BACKEND_PORT · frontend :$FRONTEND_PORT"
 
 # ── 1. Free the ports (kill only what is bound to them) ──────────────
-lsof -ti:"$BACKEND_PORT"  2>/dev/null | xargs kill -9 2>/dev/null || true
-lsof -ti:"$FRONTEND_PORT" 2>/dev/null | xargs kill -9 2>/dev/null || true
-sleep 1
+# Never kill a port owner automatically: it may be another portfolio PoV.
+for port in "$BACKEND_PORT" "$FRONTEND_PORT"; do
+  if lsof -nP -iTCP:"$port" -sTCP:LISTEN >/dev/null 2>&1; then
+    echo "❌ Port $port is already in use; no process was stopped."
+    echo "   Inspect it with: lsof -nP -iTCP:$port -sTCP:LISTEN"
+    exit 1
+  fi
+done
 
 # ── 2. FastAPI backend ───────────────────────────────────────────────
 echo "→ starting backend (FastAPI :$BACKEND_PORT)…"
@@ -30,7 +37,7 @@ UVICORN_BIN="$ROOT/.venv/bin/uvicorn"
 [ -x "$UVICORN_BIN" ] || UVICORN_BIN="uvicorn"
 # allow the frontend origin in CORS
 export CORS_ORIGINS="http://localhost:$FRONTEND_PORT,http://127.0.0.1:$FRONTEND_PORT"
-nohup "$UVICORN_BIN" main:app --host 0.0.0.0 --port "$BACKEND_PORT" > /tmp/poc-backend.log 2>&1 &
+nohup "$UVICORN_BIN" main:app --host "$BACKEND_HOST" --port "$BACKEND_PORT" > /tmp/poc-backend.log 2>&1 &
 
 # ── 3. Vite frontend ─────────────────────────────────────────────────
 echo "→ starting frontend (Vite :$FRONTEND_PORT)…"
@@ -38,7 +45,24 @@ cd "$ROOT/frontend"
 [ -d node_modules ] || npm install
 # point the frontend at the backend and pin the Vite port
 export VITE_API_URL="http://localhost:$BACKEND_PORT"
-nohup npm run dev -- --host --port "$FRONTEND_PORT" --strictPort > /tmp/poc-frontend.log 2>&1 &
+if [ "${POV_DEV:-0}" != "1" ] && {
+  [ ! -f dist/index.html ] ||
+  [ ! -f dist/.pov-backend-port ] ||
+  [ "$(cat dist/.pov-backend-port 2>/dev/null)" != "$BACKEND_PORT" ] ||
+  [ -n "$(find src -type f -newer dist/index.html -print -quit)" ] ||
+  [ package-lock.json -nt dist/index.html ] ||
+  [ vite.config.js -nt dist/index.html ];
+}; then
+  echo "→ generating optimized frontend..."
+  npm run build
+  printf '%s' "$BACKEND_PORT" > dist/.pov-backend-port
+fi
+if [ "${POV_DEV:-0}" = "1" ]; then
+  FRONTEND_CMD=(npm run dev -- --host "$FRONTEND_HOST" --port "$FRONTEND_PORT" --strictPort)
+else
+  FRONTEND_CMD=(npm run preview -- --host "$FRONTEND_HOST" --port "$FRONTEND_PORT" --strictPort)
+fi
+nohup "${FRONTEND_CMD[@]}" > /tmp/poc-frontend.log 2>&1 &
 
 # ── 4. Wait and verify ───────────────────────────────────────────────
 echo "→ waiting for the backend to become ready (LangGraph cold start)…"
@@ -60,4 +84,4 @@ echo ""
 [ "$OK_F" = "200" ] && echo "✅ Frontend: http://localhost:$FRONTEND_PORT" || echo "❌ Frontend failed — check: cat /tmp/poc-frontend.log"
 echo ""
 echo "👉 Open:  http://localhost:$FRONTEND_PORT"
-echo "   Stop everything:  lsof -ti:$BACKEND_PORT,$FRONTEND_PORT | xargs kill"
+echo "   To stop it, terminate only the PIDs started by this PoV."

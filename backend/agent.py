@@ -7,6 +7,8 @@ model's tool selection and the language of its answers.
 
 import logging
 import os
+import re
+import unicodedata
 from functools import lru_cache
 from langchain_anthropic import ChatAnthropic
 from langchain_core.messages import HumanMessage, SystemMessage
@@ -27,6 +29,8 @@ llm = ChatAnthropic(
     api_key="dummy",
     anthropic_api_url=os.getenv("ANTHROPIC_BASE_URL"),
     default_headers={"api-key": os.getenv("ANTHROPIC_API_KEY", "")},
+    timeout=float(os.getenv("ANTHROPIC_TIMEOUT_SECONDS", "45")),
+    max_retries=int(os.getenv("ANTHROPIC_MAX_RETRIES", "2")),
 )
 
 
@@ -51,6 +55,10 @@ def _pipe_buscar_produto(nome: str) -> list:
     ]
 
 def _pipe_comparar_categoria(categoria: str, limite: int = 10) -> list:
+    try:
+        limite = max(1, min(int(limite), 50))
+    except (TypeError, ValueError):
+        limite = 10
     return [
         {"$match": {"categoria": categoria, "em_estoque": True}},
         {"$sort": {"avaliacao_media": -1, "total_avaliacoes": -1}},
@@ -163,11 +171,37 @@ def build_tool_pipeline(tool_name: str, args: dict) -> list:
     return builder(args) if builder else []
 
 
+SCOPE_GUIDANCE = (
+    "Essa solicitação não faz parte do catálogo deste marketplace. Posso ajudar a "
+    "buscar produtos por nome ou necessidade, comparar categorias, filtrar por faixa "
+    "de preço e explicar avaliações reais. Diga o produto, o uso ou o orçamento que você tem em mente."
+)
+
+_OUT_OF_SCOPE_PATTERNS = (
+    "temperatura", "previsao do tempo", "clima hoje", "placar", "resultado do jogo",
+    "receita culinaria", "cotacao do dolar", "horoscopo",
+)
+
+
+def is_obviously_out_of_scope(message: str) -> bool:
+    """Intercept unmistakable unrelated prompts even if dependencies are down."""
+    normalized = "".join(
+        char for char in unicodedata.normalize("NFKD", message.lower())
+        if not unicodedata.combining(char)
+    )
+    normalized = re.sub(r"\s+", " ", normalized).strip()
+    return any(pattern in normalized for pattern in _OUT_OF_SCOPE_PATTERNS)
+
+
 SYSTEM_PROMPT = """Você é um assistente especialista em recomendações de produtos de um marketplace.
 Responda SEMPRE em português brasileiro de forma concisa e objetiva.
 Use as ferramentas disponíveis para buscar dados reais antes de responder.
 Ao apresentar preços, use o formato R$ X.XXX,XX.
-Sempre mencione avaliações e se o produto está em estoque ao recomendar."""
+Sempre mencione avaliações e se o produto está em estoque ao recomendar.
+Se a solicitação estiver fora do marketplace, não improvise uma resposta nem diga
+apenas que não sabe: reconheça o limite em uma frase e ofereça busca por produto,
+comparação de categorias, faixa de preço e análise de avaliações. Não chame ferramenta
+para clima, esportes, notícias ou outros assuntos sem relação com o catálogo."""
 
 # A thread_id's checkpointed history grows every turn — without trimming, a
 # long-running conversation resends its entire tool-call/result history to
@@ -231,6 +265,9 @@ def _track_usage(msgs) -> None:
 
 def run_agent(message: str, thread_id: str) -> dict:
     """Run the agent and return the answer plus a structured ReAct trace."""
+    if is_obviously_out_of_scope(message):
+        observability.metrics.bump("agent_scope_redirect")
+        return {"answer": SCOPE_GUIDANCE, "trace": [], "mode": "scope_redirect"}
     try:
         response = _get_agent().invoke(
             {"messages": [("human", message)]},
@@ -238,8 +275,15 @@ def run_agent(message: str, thread_id: str) -> dict:
         )
     except Exception:
         logger.exception("agent invocation failed thread_id=%s", thread_id)
-        return {"answer": "Ocorreu um erro ao processar sua mensagem. Tente novamente em instantes.",
-                "trace": []}
+        return {
+            "answer": (
+                "O assistente de IA está temporariamente indisponível. Ainda posso ajudar pelas abas "
+                "de Atlas Search, Vector Search, busca híbrida, similares e avaliações; tente uma delas "
+                "ou repita esta solicitação em instantes."
+            ),
+            "trace": [],
+            "mode": "provider_unavailable",
+        }
     msgs = response["messages"]
     _track_usage(msgs)
     answer = msgs[-1].content
@@ -269,4 +313,4 @@ def run_agent(message: str, thread_id: str) -> dict:
                 "degraded": degraded,
                 "reason": result if degraded else None,
             })
-    return {"answer": answer, "trace": trace}
+    return {"answer": answer, "trace": trace, "mode": "agent"}
