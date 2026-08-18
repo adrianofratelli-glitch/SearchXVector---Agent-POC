@@ -1,49 +1,49 @@
-# Backend — Search & Vector API (FastAPI)
+# Backend — API de Search & Vector (FastAPI)
 
-Exposes the POC's search logic (Atlas Search, Vector Search, Hybrid RRF,
-analytics, Reviews RAG, and the LangGraph agent) as REST endpoints consumed by
-the React frontend over axios.
+Expõe a lógica de busca da POC (Atlas Search, Vector Search, RRF híbrido,
+analytics, RAG de reviews e o agente LangGraph) como endpoints REST consumidos
+pelo frontend React via axios.
 
 ## Endpoints
 
-| Method | Path             | Description                                                     |
+| Método | Caminho          | Descrição                                                       |
 |--------|------------------|-----------------------------------------------------------------|
 | GET    | `/health`        | Health check                                                    |
-| GET    | `/stats`         | Collection counts and index status                             |
-| POST   | `/search`        | Atlas Search (autocomplete, fuzzy, highlight, counts, synonyms) |
-| POST   | `/search/facets` | Real-time facets via `$searchMeta`                              |
-| POST   | `/compare`       | Full-text vs vector vs RRF, side by side                        |
-| POST   | `/hybrid`        | Tunable RRF (`k`, `n_search`, `n_vector`)                       |
-| POST   | `/hybrid-native` | Native `$rankFusion` (Atlas 8.1+) with an RRF fallback          |
-| GET    | `/analytics`     | Parallel aggregations via `$facet` (cached for 5 minutes)       |
-| POST   | `/similar`       | Vector "more like this" with native pre-filtering               |
-| POST   | `/reviews-rag`   | Review retrieval and Claude summarization                       |
-| POST   | `/agent`         | LangGraph ReAct agent with a structured MQL trace               |
+| GET    | `/stats`         | Contagem das coleções e situação dos índices                    |
+| POST   | `/search`        | Atlas Search (autocomplete, fuzzy, highlight, contagens, sinônimos) |
+| POST   | `/search/facets` | Facetas em tempo real via `$searchMeta`                          |
+| POST   | `/compare`       | Full-text vs vetorial vs RRF, lado a lado                        |
+| POST   | `/hybrid`        | RRF ajustável (`k`, `n_search`, `n_vector`)                      |
+| POST   | `/hybrid-native` | `$rankFusion` nativo (Atlas 8.1+) com fallback para RRF          |
+| GET    | `/analytics`     | Agregações paralelas via `$facet` (cache de 5 minutos)           |
+| POST   | `/similar`       | "Mais como este" vetorial com pré-filtro nativo                  |
+| POST   | `/reviews-rag`   | Recuperação de reviews e sumarização pelo Claude                 |
+| POST   | `/agent`         | Agente ReAct LangGraph com trace MQL estruturado                 |
 
-Interactive API docs: http://localhost:8200/docs
+Documentação interativa da API: http://localhost:8200/docs
 
 ## Setup
 
 ```bash
 pip install -r requirements.txt
-# Reads the .env at the repository root (MONGODB_URI, DB_NAME, ANTHROPIC_API_KEY)
+# Lê o .env da raiz do repositório (MONGODB_URI, DB_NAME, ANTHROPIC_API_KEY)
 uvicorn main:app --reload --port 8200
 ```
 
-## Environment variables
+## Variáveis de ambiente
 
-| Variable            | Description                                                      |
+| Variável            | Descrição                                                        |
 |---------------------|------------------------------------------------------------------|
-| `MONGODB_URI`       | Atlas connection string                                          |
-| `DB_NAME`           | Database name (default: `POC`)                                   |
-| `ANTHROPIC_API_KEY` | Required by `/agent` and `/reviews-rag`                          |
-| `CORS_ORIGINS`      | Comma-separated allowed origins (default: `localhost:5273`)      |
+| `MONGODB_URI`       | String de conexão do Atlas                                       |
+| `DB_NAME`           | Nome do banco (padrão: `POC`)                                    |
+| `ANTHROPIC_API_KEY` | Exigida por `/agent` e `/reviews-rag`                            |
+| `CORS_ORIGINS`      | Origens permitidas separadas por vírgula (padrão: `localhost:5273`) |
 
-## Modules
+## Módulos
 
 ```
-atlas.py     MongoDB connection and pipelines (search, vector, RRF, facets, analytics)
-agent.py     LangGraph ReAct agent with four tools and MQL reconstruction
-reviews.py   Reviews RAG: retrieval plus Claude summarization
-main.py      FastAPI routes, CORS, and Pydantic request models
+atlas.py     conexão com o MongoDB e pipelines (search, vetorial, RRF, facetas, analytics)
+agent.py     agente ReAct LangGraph com quatro ferramentas e reconstrução do MQL
+reviews.py   RAG de reviews: recuperação mais sumarização pelo Claude
+main.py      rotas FastAPI, CORS e modelos de request Pydantic
 ```
