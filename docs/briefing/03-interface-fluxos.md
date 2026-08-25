@@ -1,8 +1,15 @@
 # Atlas Search × Vector Search — interface, fluxos e roteiro
 
-> Terceiro dos três prompts. As sete abas, o componente que sustenta a demo inteira, e o roteiro que eu preciso conseguir executar no fim.
+> Terceira parte do briefing. As sete abas, o componente que sustenta a demo inteira, e o roteiro que eu preciso conseguir executar no fim.
 
 ---
+## Estado atual — modo palco
+
+As sete jornadas continuam disponíveis em tabs horizontais compactas. Sidebar,
+KPIs globais e texto de enquadramento foram removidos: a tela abre no cenário,
+na consulta e no resultado. Status offline continua visível porque altera a
+leitura da evidência.
+
 ## Contrato visual do portfólio (v2)
 
 Esta UI participa da assinatura MongoDB Dark das PoVs. O arquivo
@@ -46,7 +53,9 @@ Sem router. O `App.jsx` guarda um índice e um array `TABS` decide o componente 
 | RAG de avaliações | `ReviewsRag.jsx` | `POST /reviews-rag` | resposta fundamentada nas avaliações que foram de fato recuperadas |
 | Agente | `AiAgent.jsx` | `POST /agent` | ReAct com trace fiel: o pipeline exibido é o que rodou |
 
-Um `Sidebar` mostrando o estado do cluster o tempo todo — documentos, vetores, avaliações, índices prontos (`GET /stats`). É o que responde de antemão a pergunta "isso é um dataset de brinquedo?".
+`GET /stats` continua disponível para preflight e diagnóstico, mas não ocupa uma
+sidebar persistente. Durante a apresentação, escala e prontidão aparecem apenas
+quando forem relevantes ao cenário ativo.
 
 Na aba híbrida, mostra por documento **em qual dos dois motores ele apareceu e em que posição**, mais a contagem de "só lexical / só vetorial / nos dois". É isso que torna a fusão visível em vez de mágica — e a linha "só vetorial" é o argumento inteiro numa imagem.
 
@@ -90,5 +99,5 @@ O passo 5 é o que mais surpreende positivamente. Mostrar o próprio produto deg
 ## Antes de apresentar
 
 - `setup_search_indexes.py --status` com tudo `READY` — índice de Search demora, e o vetorial com autoEmbed demora mais.
-- Sidebar mostrando os números do cluster, não zeros.
+- `/api/stats` confirmando números reais do cluster, não zeros.
 - Uma busca de aquecimento em cada aba de IA, pra que o primeiro clique da demo não pague cold start.

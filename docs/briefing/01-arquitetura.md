@@ -1,6 +1,6 @@
 # Atlas Search × Vector Search — arquitetura e princípios
 
-> Primeiro dos três prompts que eu uso pra levantar essa PoV do zero. Aqui está a tese, a arquitetura e os dois padrões que sustentam tudo. Coleções, índices e pipelines em `02-mongodb.md`; tela e roteiro em `03-interface-fluxos.md`.
+> Primeira das três partes do briefing desta PoV. Aqui está a tese, a arquitetura e os dois padrões que sustentam tudo. Coleções, índices e pipelines em `02-mongodb.md`; tela e roteiro em `03-interface-fluxos.md`.
 
 ---
 

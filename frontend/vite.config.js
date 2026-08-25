@@ -16,4 +16,6 @@ export default defineConfig({
       util: require.resolve('util/'),
     },
   },
+  server: { port: 5273, strictPort: true },
+  preview: { port: 5273, strictPort: true },
 })

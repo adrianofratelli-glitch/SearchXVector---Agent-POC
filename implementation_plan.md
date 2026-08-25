@@ -8,8 +8,8 @@ A tese: **você não precisa de um motor de busca separado do banco, nem de um v
 
 | Arquivo | O que responde |
 |---|---|
-| [`docs/prompts/01-arquitetura.md`](docs/prompts/01-arquitetura.md) | tese, arquitetura de módulos, degradação graciosa, transparência de MQL, o agente ReAct, como rodar, fronteiras |
-| [`docs/prompts/02-mongodb.md`](docs/prompts/02-mongodb.md) | as duas coleções e o porquê, definições de índice, score de negócio, todos os pipelines (`$search`, `$vectorSearch`, `$rankFusion`, `$facet`) |
-| [`docs/prompts/03-interface-fluxos.md`](docs/prompts/03-interface-fluxos.md) | as sete abas, `MqlBlock`, badges de fallback, roteiro de demo |
+| [`docs/briefing/01-arquitetura.md`](docs/briefing/01-arquitetura.md) | tese, arquitetura de módulos, degradação graciosa, transparência de MQL, o agente ReAct, como rodar, fronteiras |
+| [`docs/briefing/02-mongodb.md`](docs/briefing/02-mongodb.md) | as duas coleções e o porquê, definições de índice, score de negócio, todos os pipelines (`$search`, `$vectorSearch`, `$rankFusion`, `$facet`) |
+| [`docs/briefing/03-interface-fluxos.md`](docs/briefing/03-interface-fluxos.md) | as sete abas, `MqlBlock`, badges de fallback, roteiro de demo |
 
 Se for ler só um: o **01**, pelos dois padrões centrais. Sem eles a demo vira "um buscador bonito".

@@ -1,6 +1,6 @@
 # Atlas Search × Vector Search — MongoDB: coleções, índices e pipelines
 
-> Segundo dos três prompts. Tudo que encosta no Atlas: por que são duas coleções, as definições de índice, e cada pipeline que a demo executa.
+> Segunda parte do briefing. Tudo que encosta no Atlas: por que são duas coleções, as definições de índice, e cada pipeline que a demo executa.
 
 ---
 
@@ -192,7 +192,7 @@ Então `_get_reviewed()` cacheia (TTL 600s) o subconjunto de produtos **que têm
 
 `get_search_indexes(collection)` → `$listSearchIndexes` com cache de 60s. Em cima dela:
 
-- `get_index_status()` — o que a Sidebar mostra (nome, tipo, status).
+- `get_index_status()` — preflight e diagnóstico de índice (nome, tipo, status).
 - `_field_types(index_doc, path)` — quais tipos um campo tem no índice vivo.
 - `search_filter_caps()` — as capacidades de filtro, campo a campo.
 - `vector_collection_search_index()` — o nome do índice lexical **queryable** em `produtos_vector`, ou `None` (o gatilho do fallback do `$rankFusion`).

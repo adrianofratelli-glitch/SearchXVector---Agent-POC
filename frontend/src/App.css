@@ -187,3 +187,11 @@
     border-right-color: var(--border);
   }
 }
+
+.search-tabs { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 18px; }
+.search-tabs button {
+  min-height: 40px; padding: 0 12px; border: 1px solid transparent; border-radius: 7px;
+  background: transparent; color: var(--text-muted, #889397); font: 600 12px var(--font-body, sans-serif); cursor: pointer;
+}
+.search-tabs button:hover { color: var(--text-pri, #e8edeb); }
+.search-tabs button.active { border-color: rgba(0,237,100,.35); background: rgba(0,237,100,.08); color: #00ed64; }

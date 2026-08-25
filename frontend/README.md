@@ -49,8 +49,8 @@ src/
 ├── App.jsx                LeafyGreenProvider, layout e abas
 ├── components/
 │   ├── Leaf.jsx           logo da folha MongoDB
-│   ├── Sidebar.jsx        navegação, coleções, status do cluster
-│   ├── KpiCard.jsx        segmento da barra de estatísticas
+│   ├── Sidebar.jsx        componente legado, fora do shell atual
+│   ├── KpiCard.jsx        componente legado, fora do shell atual
 │   └── ProductTable.jsx   tabela de resultados e bloco MQL
 └── tabs/
     ├── AtlasSearch.jsx    busca full-text (autocomplete, fuzzy, highlight)
