@@ -1,6 +1,6 @@
 fastapi>=0.130,<0.150
 uvicorn[standard]>=0.30,<0.55
-pymongo>=4.10,<5
+pymongo>=4.16,<4.17  # langgraph-checkpoint-mongodb 0.4.x ainda exige <4.17
 python-dotenv>=1.0,<2
 langchain>=1.0,<2
 langchain-anthropic>=1.0,<2
