@@ -87,7 +87,10 @@ class CompareReq(BaseModel):
 
 class HybridReq(BaseModel):
     query: str = Field(..., min_length=1, max_length=500)
-    k: int = Field(60, ge=1, le=1000)
+    # Bounded to a practically meaningful RRF range: k<10 is dominated almost
+    # entirely by the top-1 rank of each pipeline, k>200 flattens rank
+    # differences to the point the fusion stops discriminating between results.
+    k: int = Field(60, ge=10, le=200)
     n_search: int = Field(20, ge=1, le=100)
     n_vector: int = Field(20, ge=1, le=100)
 

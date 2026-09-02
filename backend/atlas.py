@@ -33,7 +33,17 @@ db = _client[DB_NAME]  # lazy connection — only connects on the first query
 
 # ── Safe execution helper ────────────────────────────────────────────────────
 def safe_aggregate(collection: str, pipeline: list):
-    """Run an aggregate with friendly error handling. Returns (results, error)."""
+    """Run an aggregate with friendly error handling. Returns (results, error).
+
+    NOTE (known ambiguity): a 10s ExecutionTimeout does not tell us whether the
+    bottleneck was the MongoDB cluster itself or the external embedding
+    provider (Voyage AI, via autoEmbed on $vectorSearch/$search). The driver
+    does not currently surface that distinction in the exception; explain()
+    would be needed to separate "cluster-side" from "provider-side" latency,
+    and we don't run explain() on the hot path. Flagging this for whoever
+    debugs a timeout spike later — check Atlas metrics for autoEmbed latency
+    before assuming a cluster-side regression.
+    """
     try:
         return list(db[collection].aggregate(pipeline, maxTimeMS=QUERY_TIMEOUT_MS)), None
     except ExecutionTimeout:
@@ -41,6 +51,12 @@ def safe_aggregate(collection: str, pipeline: list):
     except PyMongoError as e:
         msg = str(e)
         if "index not found" in msg.lower() or "no such index" in msg.lower():
+            # The lexical/vector index on this collection may be mid-rebuild or
+            # dropped — the 60s TTL cache in get_search_indexes() could still be
+            # holding a stale "index exists" view. Force the next read to hit
+            # $listSearchIndexes for real, so "same corpus" badges and native
+            # $rankFusion eligibility reflect the current state, not a cached one.
+            invalidate_index_cache(collection)
             return None, "Índice não encontrado. Verifique se o Search/Vector index está READY no Atlas."
         if "synonym" in msg.lower():
             return None, "synonym-analyzer"  # flag for graceful fallback
@@ -86,6 +102,18 @@ def get_search_indexes(collection: str) -> list:
         idx = []
     _index_cache[collection] = {"ts": now, "indexes": idx}
     return idx
+
+
+def invalidate_index_cache(collection: str | None = None) -> None:
+    """Drop the cached $listSearchIndexes result so the next read reflects the
+    real index state instead of waiting out the TTL. Called when a query fails
+    with an index-not-found error — the strongest live signal that an index is
+    being rebuilt/dropped and the cached view (used for "same corpus" badges
+    and native $rankFusion eligibility) is stale."""
+    if collection is None:
+        _index_cache.clear()
+    else:
+        _index_cache.pop(collection, None)
 
 
 def get_index_status() -> list:
@@ -213,6 +241,20 @@ def get_analytics(full: bool = False) -> dict:
     }
 
 
+def _num_candidates(limit: int, multiplier: int = 10) -> int:
+    """numCandidates for $vectorSearch, derived from `limit`.
+
+    MongoDB's guidance for $vectorSearch is to oversample the candidate pool
+    10x-20x the requested `limit`, then let HNSW/ANN narrow it down — too low
+    a multiplier hurts recall, too high wastes latency. 10x is the default here
+    (matches the previous hybrid_rrf/hybrid_native behavior); callers can pass
+    a higher multiplier for an operation-specific reason (e.g. a smaller result
+    set where the extra recall is cheap), but that choice should be measured,
+    not guessed — leave a comment at the call site explaining why.
+    """
+    return max(1, limit) * multiplier
+
+
 # ── Recommendations — Vector "more like this" with PRE-FILTERING ──────────────
 def find_similar(produto_id: str = None, nome: str = None, same_category: bool = True) -> dict:
     """Semantically similar products (autoEmbed). Demonstrates VECTOR PRE-FILTERING:
@@ -225,6 +267,16 @@ def find_similar(produto_id: str = None, nome: str = None, same_category: bool =
     lex_index = vector_collection_search_index()
     base_coll = "produtos_vector" if lex_index else "produtos"
     base_index = lex_index or "produtos_search"
+    if not lex_index:
+        # Cross-collection heuristic: base product comes from `produtos` (20M
+        # docs) but the $vectorSearch below runs on `produtos_vector` (a 500K
+        # $sample) — different textual distributions, so relevance can degrade
+        # silently. Logged for visibility, not corrected here (see audit #4).
+        logger.info(
+            "find_similar: no lexical index on produtos_vector — using cross-collection "
+            "heuristic (base from produtos, vector search on produtos_vector) produto_id=%s nome=%s",
+            produto_id, nome,
+        )
     proj = {"$project": {"_id": 0, "nome": 1, "descricao": 1, "categoria": 1,
                          "preco": 1, "produto_id": 1}}
     if produto_id:
@@ -253,7 +305,9 @@ def find_similar(produto_id: str = None, nome: str = None, same_category: bool =
     vector_stage = {"$vectorSearch": {
         "index": "produtos_vector", "path": "descricao",
         "query": b.get("descricao", b["nome"]),
-        "numCandidates": 200, "limit": 9,
+        # ~22x multiplier: recommendations run over a category pre-filter, so
+        # extra oversampling compensates for candidates the filter discards.
+        "numCandidates": _num_candidates(9, multiplier=22), "limit": 9,
     }}
     pre_filter = None
     if same_category:
@@ -304,6 +358,14 @@ def _get_reviewed():
     return _reviewed_cache["by_id"]
 
 
+# Fallback scan is O(n) over the reviewed catalog (Python sort, not indexed).
+# Concurrent calls hitting the fallback for the SAME query (typical during an
+# Atlas Search outage — many requests fall back at once) would otherwise each
+# redo the full scan. Cache the winning produto_id per query for a short TTL.
+_FALLBACK_TTL = 30
+_fallback_cache = {}  # query(lower/stripped) -> {"ts": float, "produto_id": str}
+
+
 def get_product_and_reviews(query: str, n_reviews: int = 8) -> dict:
     """Find the most relevant product THAT HAS reviews and fetch them (top by
     helpfulness). Relevance comes from a REAL Atlas Search query: we take the
@@ -338,18 +400,24 @@ def get_product_and_reviews(query: str, n_reviews: int = 8) -> dict:
         # index unavailable or no reviewed product in the top 50 → keyword match
         # over the reviewed catalog (never leaves the user with 0 reviews)
         via = "catalog_fallback"
-        catalog = list(by_id.values())
         q = query.lower().strip()
-        tokens = [t for t in q.split() if len(t) > 2]
-        def score(p):
-            blob = f"{p.get('nome','')} {p.get('marca','')} {p.get('categoria','')}".lower()
-            s = sum(1 for t in tokens if t in blob)
-            if q in blob:
-                s += 3
-            return s
-        ranked = sorted(catalog, key=score, reverse=True)
-        produto = ranked[0] if score(ranked[0]) > 0 else \
-            max(catalog, key=lambda p: int(p.get("total_avaliacoes", 0) or 0))
+        now = time.time()
+        cached = _fallback_cache.get(q)
+        if cached and now - cached["ts"] < _FALLBACK_TTL and cached["produto_id"] in by_id:
+            produto = by_id[cached["produto_id"]]
+        else:
+            catalog = list(by_id.values())
+            tokens = [t for t in q.split() if len(t) > 2]
+            def score(p):
+                blob = f"{p.get('nome','')} {p.get('marca','')} {p.get('categoria','')}".lower()
+                s = sum(1 for t in tokens if t in blob)
+                if q in blob:
+                    s += 3
+                return s
+            ranked = sorted(catalog, key=score, reverse=True)
+            produto = ranked[0] if score(ranked[0]) > 0 else \
+                max(catalog, key=lambda p: int(p.get("total_avaliacoes", 0) or 0))
+            _fallback_cache[q] = {"ts": now, "produto_id": produto["produto_id"]}
 
     reviews_pipeline = [
         {"$match": {"produto_id": produto["produto_id"]}},
@@ -572,7 +640,10 @@ def compare_search_vector(query: str, mode: str = "phrase") -> dict:
     ]
     vector_pipeline = [
         {"$vectorSearch": {"index": "produtos_vector", "path": "descricao",
-                           "query": query, "numCandidates": 150, "limit": 10}},
+                           "query": query,
+                           # 15x multiplier: unfiltered comparison, matches the
+                           # ratio this tab shipped with.
+                           "numCandidates": _num_candidates(10, multiplier=15), "limit": 10}},
         {"$project": {"_id": 0, "produto_id": 1, "nome": 1, "marca": 1, "categoria": 1, "preco": 1,
                       "avaliacao_media": 1, "score": {"$meta": "vectorSearchScore"}}},
     ]
@@ -627,7 +698,7 @@ def hybrid_rrf(query: str, k=60, n_search=20, n_vector=20) -> dict:
     ]
     v_pipe = [
         {"$vectorSearch": {"index": "produtos_vector", "path": "descricao",
-                           "query": query, "numCandidates": n_vector * 10, "limit": n_vector}},
+                           "query": query, "numCandidates": _num_candidates(n_vector), "limit": n_vector}},
         {"$project": {"_id": 0, "produto_id": 1, "nome": 1, "categoria": 1, "preco": 1,
                       "vector_score": {"$meta": "vectorSearchScore"}}},
     ]
@@ -679,7 +750,19 @@ def _parse_rank_fusion_details(doc: dict) -> dict:
     the exact shape varies by server version)."""
     out = {"rank_search": None, "rank_vector": None}
     sd = doc.get("scoreDetails") or {}
-    for d in sd.get("details", []) or []:
+    details = sd.get("details")
+    if not details:
+        # Unexpected shape for this Atlas version — silently leaving rank_search/
+        # rank_vector as None would make "both" report False even when the doc
+        # DID appear in both sub-pipelines. Log the shape we actually got so a
+        # future debugging session can see what changed across Atlas versions.
+        logger.warning(
+            "rankFusion scoreDetails missing 'details' — unexpected shape for this "
+            "Atlas version. scoreDetails keys=%s scoreDetails=%r",
+            list(sd.keys()), sd,
+        )
+        return out
+    for d in details:
         name = d.get("inputPipelineName", "")
         rank = d.get("rank")
         if not isinstance(rank, int):  # absent pipelines report rank "NA"
@@ -722,7 +805,7 @@ def hybrid_native(query: str, limit: int = 20) -> dict:
                 ],
                 "semantico": [
                     {"$vectorSearch": {"index": "produtos_vector", "path": "descricao",
-                                       "query": query, "numCandidates": limit * 10, "limit": limit}},
+                                       "query": query, "numCandidates": _num_candidates(limit), "limit": limit}},
                 ],
             }},
             "combination": {"weights": {"textual": 1, "semantico": 1}},
