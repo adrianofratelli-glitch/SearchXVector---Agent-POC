@@ -28,21 +28,24 @@ export default function AtlasSearch() {
   const [data, setData] = useState(null);
   const [facetData, setFacetData] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [facetsLoading, setFacetsLoading] = useState(false);
 
   const run = async (selectedCats, queryOverride) => {
     const categorias = selectedCats ?? cats;
     const query = queryOverride ?? q;
     if (loading || !query.trim()) return;
     setLoading(true);
+    setFacetsLoading(true);
+    setFacetData(null);
+    const facetRequest = facets({ query, synonyms }).catch(() => null);
     try {
-      const [res, fac] = await Promise.all([
-        search({ query, synonyms, categorias: categorias.length ? categorias : null }),
-        facets({ query, synonyms }).catch(() => null),
-      ]);
+      const res = await search({ query, synonyms, categorias: categorias.length ? categorias : null });
       setData(res);
+      setLoading(false);
+      const fac = await facetRequest;
       setFacetData(fac);
     } catch (e) { setData({ error: `Falha na busca: ${e.message}` }); }
-    finally { setLoading(false); }
+    finally { setLoading(false); setFacetsLoading(false); }
   };
 
   const toggleCat = (cat) => {
@@ -67,29 +70,38 @@ export default function AtlasSearch() {
         Autocomplete, fuzzy matching, highlight e navegação facetada ($searchMeta) — como um e-commerce real.
       </Body>
 
-      <div style={{ display: "flex", gap: 12, alignItems: "flex-end", marginBottom: 8 }}>
-        <div style={{ flex: 1 }}>
-          <TextInput aria-labelledby="atlas-search-title" placeholder="Nike, notebook, adidass, samsumg…"
+      <form className="query-toolbar" aria-label="Buscar no catálogo" aria-busy={loading} onSubmit={(event) => { event.preventDefault(); run(); }}>
+        <div className="query-toolbar__field">
+          <span className="query-toolbar__label">Consulta</span>
+          <TextInput type="search" aria-labelledby="atlas-search-title" placeholder="Ex.: notebook gamer, adidass, samsumg…"
             value={q} onChange={(e) => setQ(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && run()} darkMode sizeVariant="default" />
+            darkMode sizeVariant="large" />
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 8, paddingBottom: 6 }}>
+        <label className="query-toolbar__option">
           <Toggle checked={synonyms} onChange={setSynonyms} aria-label="Sinônimos" size="small" darkMode />
-          <Body style={{ color: T.text2, fontSize: 13 }}>Sinônimos</Body>
-        </div>
-        <Button variant="primary" onClick={() => run()} disabled={loading} darkMode>
-          {loading ? "Buscando…" : "🔍 Buscar"}
+          <span>Sinônimos</span>
+        </label>
+        <Button type="button" variant="primary" onClick={() => run()} disabled={loading || !q.trim()} darkMode>
+          {loading ? "Buscando…" : "Buscar catálogo"}
         </Button>
-      </div>
+      </form>
+
+      {facetsLoading && data?.results?.length > 0 && (
+        <div className="facet-loading" role="status">
+          <span className="pov-skeleton" aria-hidden="true" />
+          Resultados prontos · carregando facetas em segundo plano
+        </div>
+      )}
 
       {!data && (
-        <div style={{ textAlign: "center", padding: "30px 0", color: T.text3 }}>
-          <div style={{ fontSize: 30, marginBottom: 8 }}>🔍</div>
+        <div className="search-empty">
+          <span className="search-empty__glyph" aria-hidden="true" />
           <Subtitle style={{ color: T.text }}>Busque um produto para começar</Subtitle>
           <Body style={{ color: T.text3, marginTop: 4, marginBottom: 14 }}>
             Termos com erro de digitação (adidass, samsumg) testam o fuzzy matching.
           </Body>
-          <div style={{ display: "flex", gap: 8, justifyContent: "center", flexWrap: "wrap" }}>
+          <div className="query-suggestions">
+            <span>Experimente:</span>
             {SUGGESTIONS.map((s) => (
               <Button key={s} size="small" variant="default" darkMode
                 onClick={() => { setQ(s); run(cats, s); }}>{s}</Button>

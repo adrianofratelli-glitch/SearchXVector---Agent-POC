@@ -13,7 +13,7 @@ const Similares = lazy(() => import("./tabs/Similares"));
 const ReviewsRag = lazy(() => import("./tabs/ReviewsRag"));
 
 const TABS = [AtlasSearch, SearchVsVector, HybridRRF, Similares, Analytics, ReviewsRag, AiAgent];
-const TAB_LABELS = ["Search", "Search × Vector", "Híbrida", "Similares", "Analytics", "Reviews", "Agente"];
+const TAB_LABELS = ["Full-text", "Search × Vector", "Híbrida", "Similares", "Analytics", "Reviews RAG", "Agente"];
 
 export default function App() {
   const [tab, setTab] = useState(0);
@@ -33,27 +33,40 @@ export default function App() {
 
   return (
     <LeafyGreenProvider darkMode>
-      <div className="search-shell" data-pov-shell style={{ display: "flex", minHeight: "100vh" }}>
+      <div className="search-shell" data-pov-shell>
         <a className="pov-skip-link" href="#conteudo-principal">Pular para o conteúdo</a>
-        <main id="conteudo-principal" tabIndex={-1} className="search-main" style={{ flex: 1, padding: "0 28px 40px", maxWidth: 1320, margin: "0 auto" }}>
-          {/* Header */}
-          <div style={{ padding: "26px 0 18px", borderBottom: `1px solid ${T.border}`, marginBottom: 20 }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
-              <Leaf size={28} />
-              <h1 style={{ margin: 0, fontSize: 30, fontWeight: 800, color: T.text,
-                           letterSpacing: "-0.04em", lineHeight: 1.05 }}>
-                Search <span style={{ color: T.green }}>×</span> Vector
-              </h1>
-              <div style={{ marginLeft: "auto", fontSize: 11.5, color: T.text3, fontFamily: T.mono }}>
-                {offline ? "⚠ offline" : `${fmtCount(c.produtos)} docs · ${readyCount}/${indices.length || '—'} índices prontos`}
+        <main id="conteudo-principal" tabIndex={-1} className="search-main">
+          <header className="search-header">
+            <div className="search-header__topline">
+              <div className="search-brand">
+                <span className="search-brand__mark" aria-hidden="true"><Leaf size={30} /></span>
+                <span>
+                  <span className="search-brand__eyebrow">MongoDB Atlas · Discovery Lab</span>
+                  <h1>Search <span>×</span> Vector</h1>
+                </span>
+              </div>
+              <div className={`search-status ${offline ? "is-offline" : ""}`} role="status" aria-live="polite">
+                <span className="search-status__dot" aria-hidden="true" />
+                <span>{offline ? "Atlas indisponível" : `${fmtCount(c.produtos)} documentos`}</span>
+                {!offline && <span className="search-status__detail">{readyCount}/{indices.length || "—"} índices prontos</span>}
               </div>
             </div>
-            <div className="search-tabs" role="navigation" aria-label="Cenários de busca">
+
+            <nav className="search-tabs" aria-label="Cenários de busca">
               {TAB_LABELS.map((label, index) => (
-                <button key={label} className={tab === index ? "active" : ""} aria-current={tab === index ? "page" : undefined} onClick={() => setTab(index)}>{label}</button>
+                <button
+                  key={label}
+                  type="button"
+                  className={tab === index ? "active" : ""}
+                  aria-current={tab === index ? "page" : undefined}
+                  onClick={() => setTab(index)}
+                >
+                  <span className="search-tab__index" aria-hidden="true">{String(index + 1).padStart(2, "0")}</span>
+                  <span>{label}</span>
+                </button>
               ))}
-            </div>
-          </div>
+            </nav>
+          </header>
 
           {offline && (
             <div style={{ background: "rgba(255,105,96,0.1)", border: `1px solid ${T.red}44`,
@@ -65,8 +78,8 @@ export default function App() {
             </div>
           )}
 
-          <div className="fade-up" key={tab}>
-            <Suspense fallback={<div style={{ color: T.text2, padding: "28px 0" }}>Carregando módulo…</div>}>
+          <div className="fade-up search-workspace" key={tab}>
+            <Suspense fallback={<div className="search-module-loading"><span className="pov-skeleton" />Carregando módulo…</div>}>
               <ActiveTab />
             </Suspense>
           </div>
