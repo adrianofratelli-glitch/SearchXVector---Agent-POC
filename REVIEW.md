@@ -43,3 +43,15 @@ Auditoria do ambiente instalado, não de uma resolução limpa do manifesto; fer
 Varredura por padrões de chaves privadas, chaves Anthropic/AWS e URI MongoDB autenticada no histórico Git local alcançável: nenhuma credencial real confirmada; matches encontrados eram placeholders conhecidos. Limite: não é scanner de entropia, não cobre objetos inacessíveis, texto em screenshots nem logs externos.
 
 Nenhum import/referência estática a `_shared/grove_client.py` foi encontrado nesta PoV. Configuração própria de gateway/ambiente não constitui dependência de código desse módulo. `_shared` permaneceu intocado; consumidores externos/dinâmicos não são garantidos por busca estática. Relatório separado: `../REVIEW_SHARED.md`.
+
+
+## Fechamento final — 2026-09-05
+
+Esta seção atualiza o estado dos achados históricos acima.
+
+- Aplicado/reavaliado: visible-change: sete destinos organizados em quatro categorias primárias; quatro cenários de Busca no segundo nível. Preserva os sete componentes/índices.
+- Validação: 17 testes; build; quatro categorias e quatro subitens exercitados, 1440/768/360 sem pageerror/overflow; npm/pip-audit sem achados.
+- Propostas e limites restantes: Nenhuma pendência de código adicional segura identificada. Aprovação necessária para agrupamento de navegação (limite de cinco destinos primários do design system). Ranking, corpus, índices, pooling e maxTimeMS preservados.
+- pip-audit atual: Nenhum advisory de Python encontrado no ambiente auditado.
+- Ambiente: pip 26.2.1 nos ambientes que possuem pip; FinScope mantém uv sem pip. Essa atualização local não altera arquivos de dependências das PoVs.
+- `_shared`: nenhum importador estático comprovado nesta PoV; apenas smoke consome o helper no inventário.
