@@ -2,7 +2,7 @@
 
 > Esse é o briefing que eu entrego **antes de existir uma linha de código**. Não é documentação do que existe: é o que eu daria pra alguém (ou pro Claude) subir a PoV inteira do zero.
 
-Um PoC de Atlas Search e Vector Search sobre um catálogo sintético de marketplace: full-text, semântica, híbrida (`$rankFusion` nativo **e** RRF na aplicação), analytics, RAG de avaliações e um agente ReAct em LangGraph. Sete abas, uma por capacidade. Backend FastAPI em `:8200`, frontend Vite/React/LeafyGreen em `:5273`, database `POC`.
+Um PoC de Atlas Search e Vector Search sobre um catálogo sintético de marketplace: full-text, semântica, híbrida (`$rankFusion` nativo **e** RRF na aplicação), analytics, RAG de avaliações e um agente ReAct em LangGraph. Sete capacidades distribuídas em quatro destinos primários; os quatro cenários de busca ficam no segundo nível. Backend FastAPI em `:8200`, frontend Vite/React/LeafyGreen em `:5273`, database `POC`.
 
 A tese: **você não precisa de um motor de busca separado do banco, nem de um vector DB separado do motor de busca.**
 

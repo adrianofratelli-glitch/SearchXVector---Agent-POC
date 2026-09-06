@@ -102,3 +102,8 @@ O passo 5 é o que mais surpreende positivamente. Mostrar o próprio produto deg
 - `setup_search_indexes.py --status` com tudo `READY` — índice de Search demora, e o vetorial com autoEmbed demora mais.
 - `/api/stats` confirmando números reais do cluster, não zeros.
 - Uma busca de aquecimento em cada aba de IA, pra que o primeiro clique da demo não pague cold start.
+
+
+## Comportamento de resiliência integrado
+
+Ignorar facetas atrasadas de busca anterior; impedir envio duplicado; highlight acompanha consulta executada. A implementação vigente está em `main`; consulte o estado atual de `../../REVIEW.md` para validação e propostas não aplicadas.
