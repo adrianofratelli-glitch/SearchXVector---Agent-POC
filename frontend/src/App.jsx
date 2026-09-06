@@ -15,6 +15,13 @@ const ReviewsRag = lazy(() => import("./tabs/ReviewsRag"));
 const TABS = [AtlasSearch, SearchVsVector, HybridRRF, Similares, Analytics, ReviewsRag, AiAgent];
 const TAB_LABELS = ["Full-text", "Search × Vector", "Híbrida", "Similares", "Analytics", "Reviews RAG", "Agente"];
 
+const NAV_GROUPS = [
+  { label: "Busca", tabs: [0, 1, 2, 3] },
+  { label: "Analytics", tabs: [4] },
+  { label: "Reviews RAG", tabs: [5] },
+  { label: "Agente", tabs: [6] },
+];
+
 export default function App() {
   const [tab, setTab] = useState(0);
   const [stats, setStats] = useState(null);
@@ -26,6 +33,7 @@ export default function App() {
       .catch(() => setOffline(true));
   }, []);
 
+  const group = NAV_GROUPS.find((item) => item.tabs.includes(tab));
   const ActiveTab = TABS[tab];
   const c = stats?.collections || {};
   const indices = stats?.indices || [];
@@ -52,20 +60,28 @@ export default function App() {
               </div>
             </div>
 
-            <nav className="search-tabs" aria-label="Cenários de busca">
-              {TAB_LABELS.map((label, index) => (
+            <nav className="search-tabs" aria-label="Capacidades">
+              {NAV_GROUPS.map((item) => (
+                <button key={item.label} type="button" className={group === item ? "active" : ""}
+                  aria-current={group === item ? "page" : undefined} onClick={() => setTab(item.tabs[0])}>
+                  {item.label}
+                </button>
+              ))}
+            </nav>
+            {group.tabs.length > 1 && <nav className="search-tabs" aria-label="Cenários de busca">
+              {group.tabs.map((index) => (
                 <button
-                  key={label}
+                  key={TAB_LABELS[index]}
                   type="button"
                   className={tab === index ? "active" : ""}
                   aria-current={tab === index ? "page" : undefined}
                   onClick={() => setTab(index)}
                 >
                   <span className="search-tab__index" aria-hidden="true">{String(index + 1).padStart(2, "0")}</span>
-                  <span>{label}</span>
+                  <span>{TAB_LABELS[index]}</span>
                 </button>
               ))}
-            </nav>
+            </nav>}
           </header>
 
           {offline && (
