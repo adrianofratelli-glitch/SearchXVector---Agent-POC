@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import TextInput from "@leafygreen-ui/text-input";
 import Button from "@leafygreen-ui/button";
 import Badge from "@leafygreen-ui/badge";
@@ -23,6 +23,10 @@ const SUGGESTIONS = ["adidass", "samsumg", "notebook gamer"];
 
 export default function AtlasSearch() {
   const [q, setQ] = useState("");
+  const requestId = useRef(0);
+  const searchPending = useRef(false);
+  const [resultQuery, setResultQuery] = useState("");
+  useEffect(() => () => { requestId.current += 1; }, []);
   const [synonyms, setSynonyms] = useState(false);
   const [cats, setCats] = useState([]);          // faceted navigation: selected categories
   const [data, setData] = useState(null);
@@ -33,19 +37,23 @@ export default function AtlasSearch() {
   const run = async (selectedCats, queryOverride) => {
     const categorias = selectedCats ?? cats;
     const query = queryOverride ?? q;
-    if (loading || !query.trim()) return;
+    if (searchPending.current || !query.trim()) return;
+    const current = ++requestId.current;
+    searchPending.current = true;
     setLoading(true);
     setFacetsLoading(true);
     setFacetData(null);
     const facetRequest = facets({ query, synonyms }).catch(() => null);
     try {
       const res = await search({ query, synonyms, categorias: categorias.length ? categorias : null });
-      setData(res);
+      if (current !== requestId.current) return;
+      setData(res); setResultQuery(query);
+      searchPending.current = false;
       setLoading(false);
       const fac = await facetRequest;
-      setFacetData(fac);
-    } catch (e) { setData({ error: `Falha na busca: ${e.message}` }); }
-    finally { setLoading(false); setFacetsLoading(false); }
+      if (current === requestId.current) setFacetData(fac);
+    } catch (e) { if (current === requestId.current) setData({ error: `Falha na busca: ${e.message}` }); }
+    finally { if (current === requestId.current) { searchPending.current = false; setLoading(false); setFacetsLoading(false); } }
   };
 
   const toggleCat = (cat) => {
@@ -55,7 +63,7 @@ export default function AtlasSearch() {
   };
 
   const cols = [
-    { key: "nome", label: "Produto", color: T.text, render: (r) => highlight(r.nome, q) },
+    { key: "nome", label: "Produto", color: T.text, render: (r) => highlight(r.nome, resultQuery) },
     priceCol(),
     { key: "categoria", label: "Categoria" },
     { key: "avaliacao_media", label: "Avaliação", render: (r) => `⭐ ${(r.avaliacao_media || 0).toFixed(1)}` },

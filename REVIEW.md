@@ -55,3 +55,13 @@ Esta seção atualiza o estado dos achados históricos acima.
 - pip-audit atual: Nenhum advisory de Python encontrado no ambiente auditado.
 - Ambiente: pip 26.2.1 nos ambientes que possuem pip; FinScope mantém uv sem pip. Essa atualização local não altera arquivos de dependências das PoVs.
 - `_shared`: nenhum importador estático comprovado nesta PoV; apenas smoke consome o helper no inventário.
+
+
+## Homologação de resiliência e UI
+
+- Melhoria: Ignorar facetas atrasadas de busca anterior; impedir envio duplicado; highlight acompanha consulta executada.
+- Isolamento: `review/codex-homologation`, baseada no HEAD `0b1eb01`. Mudança de estado observável; aguardando aprovação individual, sem merge.
+- Validação: build passou; UI offline em 1440×1000, 768×1024 e 360×800 sem pageerror nem overflow horizontal; skip link transfere foco. 0 testes novos de transporte/polling neste repositório. As suítes locais anteriores foram reexecutadas; resultados consolidados no vault PoVs-Handoffs.
+- Limite: teste offline/fixture não certifica cenário real completo nem ausência de bugs. Não houve alteração de schema, dataset ou dependência core.
+- Propostas preservadas: Nenhuma pendência de código adicional segura identificada. Aprovação necessária para agrupamento de navegação (limite de cinco destinos primários do design system). Ranking, corpus, índices, pooling e maxTimeMS preservados.
+- `_shared` e daemon do portal não foram alterados nesta rodada.
